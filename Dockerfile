@@ -51,29 +51,27 @@ RUN set -eux; \
 # It's recommended to install extensions at build time for stable deployments.
 
 # Install VisualEditor
-# The official MediaWiki documentation often provides extension download links.
-# For many extensions, you'll find them on mediawiki.org's extension page.
-# Using 'git clone' is common for extensions that live on Gerrit/Git.
+# See: https://www.mediawiki.org/wiki/Extension:VisualEditor
 RUN set -eux; \
-    git clone https://gerrit.wikimedia.org/r/mediawiki/extensions/VisualEditor.git /var/www/html/extensions/VisualEditor; \
+    git clone --recurse-submodules https://gerrit.wikimedia.org/r/mediawiki/extensions/VisualEditor /var/www/html/extensions/VisualEditor; \
     cd /var/www/html/extensions/VisualEditor; \
     # Checkout a branch compatible with your MediaWiki version
     # (e.g., REL1_41 for MediaWiki 1.41.x)
-    git checkout REL1_41; \
+    # git checkout REL1_41; \
     # Install Composer dependencies if the extension requires them
     # The base image includes composer.
-    composer install --no-dev; \
+    # composer install --no-dev; \
     # Clean up .git directory to reduce image size
     rm -rf .git; \
     chown -R www-data:www-data /var/www/html/extensions/VisualEditor;
 
-# Example 2: Install SyntaxHighlight_GeSHi
-RUN set -eux; \
-    git clone https://gerrit.wikimedia.org/r/mediawiki/extensions/SyntaxHighlight_GeSHi.git /var/www/html/extensions/SyntaxHighlight_GeSHi; \
-    cd /var/www/html/extensions/SyntaxHighlight_GeSHi; \
-    git checkout REL1_41; \
-    rm -rf .git; \
-    chown -R www-data:www-data /var/www/html/extensions/SyntaxHighlight_GeSHi;
+# # Install SyntaxHighlight_GeSHi
+# RUN set -eux; \
+#     git clone https://gerrit.wikimedia.org/r/mediawiki/extensions/SyntaxHighlight_GeSHi.git /var/www/html/extensions/SyntaxHighlight_GeSHi; \
+#     cd /var/www/html/extensions/SyntaxHighlight_GeSHi; \
+#     git checkout REL1_41; \
+#     rm -rf .git; \
+#     chown -R www-data:www-data /var/www/html/extensions/SyntaxHighlight_GeSHi;
 
 # --- Customize MediaWiki Configuration (Optional but Recommended) ---
 # It's common to provide a custom LocalSettings.php, often using environment variables
