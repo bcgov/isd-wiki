@@ -52,14 +52,15 @@ RUN set -eux; \
 
 # Install VisualEditor
 # See: https://www.mediawiki.org/wiki/Extension:VisualEditor
+RUN cd /var/www/html/extensions/
 RUN set -eux; \
-    git clone --recurse-submodules https://gerrit.wikimedia.org/r/mediawiki/extensions/VisualEditor.git /var/www/html/extensions/VisualEditor; \
-    cd /var/www/html/extensions/VisualEditor; \
+    git clone --recurse-submodules https://gerrit.wikimedia.org/r/mediawiki/extensions/VisualEditor; \
     # Try to checkout the specific release branch first
     # If that fails (e.g., branch doesn't exist), fall back to master.
     # It's better to confirm the branch beforehand to avoid failures.
-    git checkout REL1_41 || echo "REL1_41 branch not found, falling back to master" && git checkout master; \
-    composer install --no-dev; \
+    # git checkout REL1_41 || echo "REL1_41 branch not found, falling back to master" && git checkout master; \
+    # composer install --no-dev; \
+    cd VisualEditor; \
     rm -rf .git; \
     chown -R www-data:www-data /var/www/html/extensions/VisualEditor;
 
