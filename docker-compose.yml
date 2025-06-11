@@ -1,0 +1,72 @@
+# MediaWiki with MariaDB
+#
+# Access via "http://localhost:8080"
+# (or "http://$(docker-machine ip):8080" if using docker-machine)
+
+services:
+  mediawiki:
+    # Use the 'build' instruction to build the image from your Dockerfile
+    # Make sure your Dockerfile is in the same directory as this docker-compose.yaml
+    build: .
+    # Optionally, you can give your custom image a tag after it's built
+    # image: your-custom-mediawiki-image:latest # Uncomment if you want to explicitly tag the built image
+    restart: always
+    ports:
+      - "8080:80"
+    depends_on:
+      - database # Ensure the database is up before MediaWiki tries to connect
+    environment:
+      # These environment variables configure MediaWiki to connect to the database.
+      # You'll need to ensure your custom Dockerfile's entrypoint or a custom
+      # script handles these to configure LocalSettings.php.
+      # If your Dockerfile doesn't have an entrypoint that processes these,
+      # you'll need to manage LocalSettings.php via a mounted volume,
+      # as described in the comments below.
+      MEDIAWIKI_DB_TYPE: mysqli # Your Dockerfile installs 'mysqli'
+      MEDIAWIKI_DB_HOST: database # 'database' is the service name for MariaDB
+      MEDIAWIKI_DB_NAME: isd_wiki
+      MEDIAWIKI_DB_USER: wikiuser
+      MEDIAWIKI_DB_PASSWORD: example # Use a strong password in production!
+      # Other MediaWiki configurations can be added here if your custom image's
+      # entrypoint or startup script is designed to consume them.
+      # E.g., for initial setup or site name.
+
+    volumes:
+      # Persistent storage for uploaded images and other dynamic MediaWiki data
+      - images:/var/www/data # Your Dockerfile creates /var/www/data for SQLite, use this for images too.
+                             # If MediaWiki expects /var/www/html/images, you might need an additional mount.
+                             # Typically, /var/www/html/images is the standard.
+                             # Let's adjust this to standard MediaWiki image convention:
+      - images:/var/www/html/images # Standard MediaWiki image upload path
+      # IMPORTANT: LocalSettings.php management for your custom Dockerfile:
+      # Your custom Dockerfile doesn't have the automatic LocalSettings.php generation
+      # like the official MediaWiki image. Therefore, you *must* manage LocalSettings.php
+      # yourself.
+      #
+      # Step 1: Run this docker-compose once (without this LocalSettings.php mount below)
+      #         and manually create the LocalSettings.php after initial setup.
+      #         You might need to copy a default one from the container after it starts.
+      #         e.g., docker cp <container_id>:/path/to/LocalSettings.php ./LocalSettings.php
+      # Step 2: Configure it for your database (isd_wiki, wikiuser, example, database host)
+      #         and other settings like secret key.
+      # Step 3: Uncomment the line below and restart the mediawiki service.
+      - ./LocalSettings.php:/var/www/html/LocalSettings.php
+
+  database:
+    image: mariadb:10.11 # Pin to a specific stable major version
+    restart: always
+    environment:
+      MYSQL_DATABASE: isd_wiki
+      MYSQL_USER: wikiuser
+      MYSQL_PASSWORD: example # Use a strong, random password for production!
+      MYSQL_RANDOM_ROOT_PASSWORD: 'yes' # Good for not having a hardcoded root pass
+      # MYSQL_ROOT_PASSWORD: your_secure_root_password # Uncomment for a known root password
+    volumes:
+      - db:/var/lib/mysql
+    # Uncomment to expose the database port for host access (e.g., for database management tools)
+    # ports:
+    #   - "3306:3306"
+
+volumes:
+  images:
+  db:

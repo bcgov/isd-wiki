@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mediawiki.fullname" . }}
+  labels:
+    {{- include "mediawiki.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "mediawiki.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "mediawiki.labels" . | nindent 8 }}
+        {{- include "mediawiki.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "mediawiki.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: mediawiki
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 16 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          env:
+            - name: MEDIAWIKI_DB_TYPE
+              value: {{ .Values.mediawiki.database.type | quote }}
+            - name: MEDIAWIKI_DB_HOST
+              value: {{ .Values.mediawiki.database.host | default (printf "%s-mysql" (include "mediawiki.fullname" .)) | quote }} # Adjust for other DBs
+            - name: MEDIAWIKI_DB_NAME
+              value: {{ .Values.mediawiki.database.name | quote }}
+            - name: MEDIAWIKI_DB_USER
+              value: {{ .Values.mediawiki.database.user | quote }}
+            - name: MEDIAWIKI_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mediawiki.fullname" . }}-db-credentials
+                  key: password
+            - name: MEDIAWIKI_SITE_NAME
+              value: {{ .Values.mediawiki.siteName | quote }}
+            # Add more environment variables for MediaWiki configuration as needed
+            # (e.g., for upload directory, extensions, etc.)
+          volumeMounts:
+            - name: mediawiki-data
+              mountPath: /var/www/data # Matches your Dockerfile's SQLite directory
+            - name: mediawiki-config
+              mountPath: /var/www/html/LocalSettings.php
+              subPath: LocalSettings.php # Mount the config file directly
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 16 }}
+      volumes:
+        - name: mediawiki-data
+          persistentVolumeClaim:
+            claimName: {{ include "mediawiki.fullname" . }}-data
+        - name: mediawiki-config
+          configMap:
+            name: {{ include "mediawiki.fullname" . }}-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
