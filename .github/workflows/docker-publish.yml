@@ -47,8 +47,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./sso-client
-          file: ./sso-client/Dockerfile # Path to your Dockerfile
+          context: .
+          file: .Dockerfile # Path to your Dockerfile
           push: true # Push the image to the registry
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
