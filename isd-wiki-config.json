@@ -1,0 +1,5 @@
+{
+  "MEDIAWIKI_DB_NAME": "wiki-db-name",
+  "MEDIAWIKI_DB_USER": "wiki-db-user",
+  "MEDIAWIKI_DB_PASSWORD": "wiki-db-password"
+}
