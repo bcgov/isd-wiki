@@ -5,35 +5,54 @@ metadata:
   labels:
     {{- include "mediawiki.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
+  {{- if not .Values.mediawiki.autoscaling.enabled }}
+  replicas: {{ .Values.mediawiki.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
       {{- include "mediawiki.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        # # 1. Vault injector configuration
+        # vault.hashicorp.com/agent-inject: 'true'
+        # # set to 'true' if you are going to connect and query vault from your application
+        # vault.hashicorp.com/agent-inject-token: 'false' 
+        # # this makes sure the secret vault will only change during pod restart
+        # vault.hashicorp.com/agent-pre-populate-only: 'true' 
+        # # Must match cluster. Use one of: k8s-silver, k8s-gold, k8s-golddr, k8s-emerald
+        # vault.hashicorp.com/auth-path: auth/k8s-{{ .Values.global.cluster }}  
+        # vault.hashicorp.com/namespace: platform-services
+        # # licenseplate-nonprod or licenseplate-prod are your options
+        # vault.hashicorp.com/role: {{ .Values.global.vault.role }} 
+        # # - The value is the path in Vault where the secret is located.
+        # vault.hashicorp.com/agent-inject-secret-secrets: {{ .Values.global.licenseplate }}-{{ .Values.global.vault.engine }}/{{ .Values.global.vault.secret }}
+        # # - The template Vault Agent should use for rendering a secret:
+        # vault.hashicorp.com/agent-inject-template-secrets: |
+        #   {{`{{- with secret `}}"{{ .Values.global.licenseplate }}-{{ .Values.global.vault.engine }}/{{ .Values.global.vault.secret }}"{{` }}
+        #   {{- range $k, $v := .Data.data }}
+        #   {{ $k }}={{ $v }}{{ end -}}
+        #   {{- end `}} }}
+      {{- with .Values.mediawiki.podAnnotations }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
         {{- include "mediawiki.labels" . | nindent 8 }}
         {{- include "mediawiki.selectorLabels" . | nindent 8 }}
     spec:
-      {{- with .Values.imagePullSecrets }}
+      {{- with .Values.mediawiki.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "mediawiki.serviceAccountName" . }}
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- toYaml .Values.mediawiki.podSecurityContext | nindent 8 }}
       containers:
         - name: mediawiki
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 16 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+            {{- toYaml .Values.mediawiki.securityContext | nindent 16 }}
+          image: "{{ .Values.mediawiki.image.repository }}:{{ .Values.mediawiki.image.tag }}"
+          imagePullPolicy: {{ .Values.mediawiki.image.pullPolicy }}
           ports:
             - name: http
               containerPort: 80
@@ -71,7 +90,7 @@ spec:
               path: /
               port: http
           resources:
-            {{- toYaml .Values.resources | nindent 16 }}
+            {{- toYaml .Values.mediawiki.resources | nindent 16 }}
       volumes:
         - name: mediawiki-data
           persistentVolumeClaim:
@@ -79,15 +98,15 @@ spec:
         - name: mediawiki-config
           configMap:
             name: {{ include "mediawiki.fullname" . }}-config
-      {{- with .Values.nodeSelector }}
+      {{- with .Values.mediawiki.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- with .Values.mediawiki.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with .Values.mediawiki.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}

@@ -1,6 +1,27 @@
-# Default values for isd-wiki.
+# Default values for mediawiki.
 # This is a YAML-formatted file.
 # Declare variables to be passed into the templates.
+
+global:
+  nameOverride: ""
+  fullnameOverride: ""
+  licenseplate: "abcdef"
+  cluster: "silver"
+  serviceAccount:
+    name: "abcdef-vault"
+    # Specifies whether a service account should be created
+    create: false
+    # Automatically mount a ServiceAccount's API credentials?
+    automount: true
+  # Inject Keycloak JSON multi-value config from a Vault secret
+  # See details: https://digital.gov.bc.ca/technology/cloud/private/products-tools/vault/
+  vault:
+    # Vault role for this service
+    role: "abcdef-nonprod" 
+    # Secrets path in container
+    containerPath: "/vault/secrets/secrets"
+    # Vault engine to use
+    engine: "nonprod"
 
 mediawiki:
 
@@ -491,30 +512,7 @@ mariadb:
     ## @param primary.podAnnotations Additional pod annotations for MariaDB primary pods
     ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
     ##
-    podAnnotations:
-
-        #     root: /vault/secrets/isd-wiki-db-root
-        # user: /vault/secrets/isd-wiki-db-user
-        # replicator: /vault/secrets/isd-wiki-db-replicator
-      # 1. Vault injector configuration
-      vault.hashicorp.com/agent-inject: 'true'
-      # set to 'true' if you are going to connect and query vault from your application
-      vault.hashicorp.com/agent-inject-token: 'false' 
-      # this makes sure the secret vault will only change during pod restart
-      vault.hashicorp.com/agent-pre-populate-only: 'true' 
-      # Must match cluster. Use one of: k8s-silver, k8s-gold, k8s-golddr, k8s-emerald
-      vault.hashicorp.com/auth-path: auth/k8s-silver
-      vault.hashicorp.com/namespace: platform-services
-      # licenseplate-dev or licenseplate-prod are your options
-      vault.hashicorp.com/role: {{ .Values.global.vault.role }} 
-      # - The value is the path in Vault where the secret is located.
-      vault.hashicorp.com/agent-inject-secret-secrets: abcdef-dev/isd-wiki-config
-      # - The template Vault Agent should use for rendering a secret:
-      vault.hashicorp.com/agent-inject-template-secrets: |
-        {{`{{- with secret `}}"{{ .Values.global.licenseplate }}-{{ .Values.global.vault.engine }}/{{ .Values.ssoClient.vault.secret }}"{{` }}
-        {{- range $k, $v := .Data.data }}
-        {{ $k }}={{ $v }}{{ end -}}
-        {{- end `}} }}
+    podAnnotations: {}
     ## @param primary.podLabels Extra labels for MariaDB primary pods
     ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
     ##
