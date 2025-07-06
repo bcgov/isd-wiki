@@ -1,4 +1,4 @@
-name: Build and Push Docker Image to GHCR
+name: Build and Push ISD Wiki Container Image to GHCR
 
 on:
   push:
