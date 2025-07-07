@@ -44,7 +44,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "mediawiki.serviceAccountName" . }}
+      serviceAccountName: {{ .Values.global.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.mediawiki.podSecurityContext | nindent 8 }}
       containers:
