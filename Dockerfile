@@ -100,13 +100,13 @@ EXPOSE 9000
 # --- Entrypoint and Command ---
 # Use the default entrypoint and command from the official image,
 # as it's designed to correctly initialize MediaWiki.
-# CMD ["php-fpm"] # This is usually the default for -fpm variants
-# ENTRYPOINT ["docker-entrypoint.sh"] # This is usually the default
+CMD ["php-fpm"]
+ENTRYPOINT ["/var/www/html/entrypoint.sh"]
 
 # Final permissions check (optional, for debugging)
-# RUN ls -la /var/www/html/images /var/www/html/extensions
+RUN ls -la /var/www/html/images /var/www/html/extensions
 
 # Best practice: Add labels for maintainability
-LABEL org.opencontainers.image.source="https://github.com/your-org/your-mediawiki-repo" \
-      org.opencontainers.image.description="MediaWiki custom image with extensions for OpenShift" \
+LABEL org.opencontainers.image.source="https://github.com/bcgov/isd-wiki" \
+      org.opencontainers.image.description="MediaWiki custom image with extensions." \
       org.opencontainers.image.licenses="GPL-2.0-only"
