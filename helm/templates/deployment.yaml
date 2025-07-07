@@ -77,7 +77,7 @@ spec:
               fi
 
               echo "INFO: Executing Mediawiki server..."
-              exec /var/www/html/entrypoint.sh"
+              exec /var/www/html/entrypoint.sh
           env:
             - name: MEDIAWIKI_DB_TYPE
               value: {{ .Values.mediawiki.database.type | quote }}
