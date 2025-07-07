@@ -101,7 +101,7 @@ EXPOSE 9000
 # Use the default entrypoint and command from the official image,
 # as it's designed to correctly initialize MediaWiki.
 CMD ["php-fpm"]
-ENTRYPOINT ["/var/www/html/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh"]
 
 # Final permissions check (optional, for debugging)
 RUN ls -la /var/www/html/images /var/www/html/extensions
