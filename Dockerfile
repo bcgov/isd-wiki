@@ -1,65 +1,95 @@
-# Use the official MediaWiki image as base.
-# We're choosing a specific stable version (e.g., 1.39.6) and the FPM variant
-# which is suitable for use with web servers like Nginx or Apache in separate containers
-# or for running PHP-FPM directly.
-# Always pin to a specific version for stability.
-FROM mediawiki:1.41.1-fpm
+# Use the official MediaWiki FPM stable image based on Alpine.
+# This image is designed to run non-root and is suitable for OpenShift.
+# It includes PHP-FPM, MediaWiki core, and many common PHP extensions.
+FROM mediawiki:fpm-stable-alpine
 
-# --- System Dependencies for Extensions and OpenShift Compatibility ---
-# Install system packages required for typical MediaWiki extensions
-# and ensure nonroot operations.
-# apt-get update and clean up are crucial for efficient image layers.
+# --- System dependencies ---
+# Add necessary system packages not included in the base image,
+# including git (for extensions), imagemagick, librsvg2-bin (for SVG rendering),
+# python3 (for SyntaxHighlighting), unzip (for some extensions), and jq (for Vault secret processing).
 RUN set -eux; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends \
-        git \
-        librsvg2-bin \
-        imagemagick \
-        # php-gd might be needed for image manipulation if not bundled, check base image
-        # and other common tools often used by extensions
-        unzip \
-        rsync \
+    \
+    apk add --no-cache \
+    git \
+    imagemagick \
+    librsvg2-bin \
+    python3 \
+    unzip \
+    # jq is crucial for parsing Vault secrets in your custom entrypoint script
+    jq \
+    ;
+
+# --- Install additional PHP extensions ---
+# The base `mediawiki:fpm-stable-alpine` image already includes many common PHP extensions
+# (like intl, mbstring, mysqli, opcache, calendar).
+# We only need to add those specifically requested in your original Dockerfile that might be missing,
+# or are typically installed via PECL (APCu, LuaSandbox).
+# Also adding ldap, pcntl, zip, imagick, redis, memcached as per your original Dockerfile,
+# ensuring their build dependencies are handled.
+RUN set -eux; \
+    \
+    apk add --no-cache --virtual .build-deps \
+    $PHPIZE_DEPS \
+    icu-dev \
+    lua5.1-dev \
+    oniguruma-dev \
+    # For ldap, pcntl, zip, imagick, redis, memcached
+    # Check if these are already in base, but safer to include build deps
+    openldap-dev \
+    libzip-dev \
+    imagemagick-dev \
+    hiredis-dev \
+    libmemcached-dev \
     ; \
-    rm -rf /var/lib/apt/lists/*
+    \
+    docker-php-ext-install -j "$(nproc)" \
+    ldap \
+    pcntl \
+    zip \
+    # imagick is installed via pecl, not docker-php-ext-install for ImageMagick
+    ; \
+    \
+    pecl install APCu-5.1.24; \
+    pecl install LuaSandbox-4.1.2; \
+    pecl install imagick redis memcached; \
+    docker-php-ext-enable \
+    apcu \
+    luasandbox \
+    imagick \
+    redis \
+    memcached \
+    ; \
+    rm -r /tmp/pear; \
+    \
+    runDeps="$( \
+    scanelf --needed --nobanner --format '%n#p' --recursive /usr/local/lib/php/extensions \
+    | tr ',' '\n' \
+    | sort -u \
+    | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }' \
+    )"; \
+    apk add --no-network --virtual .mediawiki-phpext-rundeps $runDeps; \
+    apk del --no-network .build-deps; \
+    # Clean up any remaining build artifacts if necessary
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# --- OpenShift Specific Configuration for Non-Root Execution ---
-# The official MediaWiki image often runs as 'www-data' (UID 33) which is a non-root user.
-# OpenShift typically runs containers with an arbitrary user ID.
-# This part ensures that the necessary directories are writable by the assigned UID.
-# MediaWiki's entrypoint often handles permissions, but it's good to be explicit for
-# common writable directories.
-
-# Ensure /var/www/html/images is writable for uploads.
-# The official image usually sets appropriate permissions for /var/www/html itself.
-# We'll rely on the official image's setup for the main /var/www/html and entrypoint.
-# The `images` directory is where user uploads go.
-RUN set -eux; \
-    mkdir -p /var/www/html/images; \
-    chmod 775 /var/www/html/images; \
-    chown -R www-data:www-data /var/www/html/images; \
-    # Also ensure extensions and skins directories are writable if you plan to
-    # dynamically add them or update them post-deployment (though generally not recommended).
-    # For a build-time Dockerfile, these are often copied in directly.
-    mkdir -p /var/www/html/extensions; \
-    mkdir -p /var/www/html/skins; \
-    chmod 775 /var/www/html/extensions /var/www/html/skins; \
-    chown -R www-data:www-data /var/www/html/extensions /var/www/html/skins
+# --- MediaWiki Version (for extension compatibility) ---
+# The base image already contains MediaWiki core. These ENVs are for extension logic.
+ENV MEDIAWIKI_MAJOR_VERSION=1.44
+ENV MEDIAWIKI_VERSION=1.44.0
+ENV MEDIAWIKI_VERSION_STR=1_44
 
 # --- Install MediaWiki Extensions ---
-# This section demonstrates how to add extensions.
-# You can add more `RUN` commands for each extension or consolidate.
-# It's recommended to install extensions at build time for stable deployments.
+# The official image already has /var/www/html/extensions.
+# We'll clone and install specific extensions here.
+WORKDIR /var/www/html
+# The base image already includes Composer.
+ENV COMPOSER_ALLOW_SUPERUSER=1
 
 # Install VisualEditor
 # See: https://www.mediawiki.org/wiki/Extension:VisualEditor
 RUN cd /var/www/html/extensions/
 RUN set -eux; \
     git clone --recurse-submodules https://gerrit.wikimedia.org/r/mediawiki/extensions/VisualEditor; \
-    # Try to checkout the specific release branch first
-    # If that fails (e.g., branch doesn't exist), fall back to master.
-    # It's better to confirm the branch beforehand to avoid failures.
-    # git checkout REL1_41 || echo "REL1_41 branch not found, falling back to master" && git checkout master; \
-    # composer install --no-dev; \
     cd VisualEditor; \
     rm -rf .git; \
     chown -R www-data:www-data /var/www/html/extensions/VisualEditor;
@@ -72,41 +102,68 @@ RUN set -eux; \
 #     rm -rf .git; \
 #     chown -R www-data:www-data /var/www/html/extensions/SyntaxHighlight_GeSHi;
 
-# --- Customize MediaWiki Configuration (Optional but Recommended) ---
-# It's common to provide a custom LocalSettings.php, often using environment variables
-# or a config map in Kubernetes. For this Dockerfile, we'll assume the configuration
-# will primarily come from environment variables passed at runtime or a mounted ConfigMap.
-# However, you might want to bake in some defaults or common settings here.
 
-# Example: Pre-enable extensions in a dummy LocalSettings.php.
-# This file will likely be overwritten by a mounted ConfigMap in Kubernetes.
-# This serves as a placeholder or a default if no config map is used.
+# --- OpenShift Specific Configuration for Non-Root Execution ---
+# The official MediaWiki image typically runs as 'www-data' (UID 33).
+# OpenShift runs containers with an arbitrary user ID, but ensures it has group write access
+# to volumes. We explicitly ensure our added/modified directories are group-writable.
+# The base image's entrypoint will handle permissions for core MediaWiki files.
+RUN set -eux; \
+    # Ensure images directory is writable for user uploads.
+    # The base image might already handle this, but explicit is safer.
+    mkdir -p /var/www/html/images; \
+    chmod 775 /var/www/html/images; \
+    chown -R www-data:www-data /var/www/html/images; \
+    \
+    # Ensure extensions and skins directories are writable if you dynamically add/update them.
+    # For build-time installs, this ensures the arbitrary UID can write if needed.
+    mkdir -p /var/www/html/extensions; \
+    mkdir -p /var/www/html/skins; \
+    chmod 775 /var/www/html/extensions /var/www/html/skins; \
+    chown -R www-data:www-data /var/www/html/extensions /var/www/html/skins;
+
+# --- Copy custom configuration files ---
+# These files will be part of the image.
+# Your LocalSettings.php will likely be overridden by a mounted ConfigMap in Kubernetes.
+# Your custom entrypoint and startup tasks will be used.
+COPY php.ini /usr/local/etc/php/
+# If you have mediawiki.conf for Apache, ensure you're using an Apache base image.
+# If using FPM, this file is irrelevant.
+# COPY mediawiki.conf /etc/apache2/
+COPY docker-entrypoint.sh /entrypoint.sh
+COPY docker-startuptasks.sh /startuptasks.sh
 COPY LocalSettings.php /var/www/html/LocalSettings.php
+COPY CustomHooks.php /var/www/html/CustomHooks.php
+COPY composer.local.json /var/www/html/composer.local.json
+COPY robots.txt /var/www/html/robots.txt
 
-# --- User and Permissions (Handled by Base Image & OpenShift) ---
-# The official MediaWiki image's entrypoint usually sets up permissions correctly
-# and switches to the 'www-data' user (UID 33).
-# OpenShift will run the container with an arbitrary user ID, but it ensures
-# that this ID has write access to volumes mounted.
-# The base image's entrypoint is responsible for handling the `www-data` user and group setup.
-# We explicitly set ownership for our added directories and files to `www-data`.
-USER www-data
+# --- Final Composer Update ---
+# Run composer update after getting all extensions, especially if composer.local.json
+# merges dependencies or if extensions have their own composer.json.
+RUN php composer.phar update --no-dev
 
-# --- Expose Port ---
-# MediaWiki (PHP-FPM) typically listens on port 9000 for FPM.
-# The web server (e.g., Nginx or Apache) would then communicate with this port.
+# --- Final Permissions and Volume ---
+# /var/www/data is for SQLite or other data. The base image might use /var/www/html/data.
+# Ensure this aligns with your LocalSettings.php and volume mounts.
+# The `images` directory is typically where user uploads go.
+RUN mkdir -p /data \
+    && chmod a+rw /var/www/html/extensions/Widgets/compiled_templates
+
+VOLUME /data
+
 EXPOSE 9000
 
 # --- Entrypoint and Command ---
-# Use the default entrypoint and command from the official image,
-# as it's designed to correctly initialize MediaWiki.
+# Stick to the official image's default ENTRYPOINT/CMD for PHP-FPM.
+# Your custom entrypoint wrapper will override this in Kubernetes.
+# The official image's ENTRYPOINT is usually 'docker-entrypoint.sh'
+# and its CMD is 'php-fpm'.
+# We keep these here as defaults, but your Helm chart will override them.
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["php-fpm"]
-ENTRYPOINT ["/entrypoint.sh"]
-
-# Final permissions check (optional, for debugging)
-RUN ls -la /var/www/html/images /var/www/html/extensions
 
 # Best practice: Add labels for maintainability
 LABEL org.opencontainers.image.source="https://github.com/bcgov/isd-wiki" \
-      org.opencontainers.image.description="MediaWiki custom image with extensions." \
-      org.opencontainers.image.licenses="GPL-2.0-only"
+    org.opencontainers.image.description="MediaWiki with extensions for OpenShift" \
+    org.opencontainers.image.licenses="GPL-2.0-only"
+
