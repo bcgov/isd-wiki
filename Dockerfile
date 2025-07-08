@@ -134,12 +134,6 @@ COPY docker-entrypoint.sh /entrypoint.sh
 COPY docker-startuptasks.sh /startuptasks.sh
 COPY LocalSettings.php /var/www/html/LocalSettings.php
 COPY CustomHooks.php /var/www/html/CustomHooks.php
-COPY composer.local.json /var/www/html/composer.local.json
-
-# --- Final Composer Update ---
-# Run composer update after getting all extensions, especially if composer.local.json
-# merges dependencies or if extensions have their own composer.json.
-RUN php composer.phar update --no-dev
 
 # --- Final Permissions and Volume ---
 # /var/www/data is for SQLite or other data. The base image might use /var/www/html/data.
