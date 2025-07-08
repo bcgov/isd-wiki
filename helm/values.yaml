@@ -28,10 +28,10 @@ mediawiki:
   replicaCount: 1
 
   image:
-    repository: mediawiki
+    repository: ghcr.io/bcgov/isd-wiki
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
-    tag: ""
+    tag: "latest"
 
   imagePullSecrets: []
   nameOverride: ""
