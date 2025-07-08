@@ -76,8 +76,11 @@ spec:
                 exit 1
               fi
 
-              echo "INFO: Executing Mediawiki server..."
-              sh /entrypoint.sh
+              echo "INFO: Running custom startup tasks (/startuptasks.sh)..."
+              /startuptasks.sh # Execute your existing startup tasks script
+
+              echo "INFO: Executing original MediaWiki entrypoint (/entrypoint.sh) with CMD..."
+              exec /entrypoint.sh "apachectl" "-e" "info" "-D" "FOREGROUND"
           env:
             - name: MEDIAWIKI_DB_TYPE
               value: {{ .Values.mediawiki.database.type | quote }}
