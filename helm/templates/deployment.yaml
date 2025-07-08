@@ -80,7 +80,8 @@ spec:
               /startuptasks.sh # Execute your existing startup tasks script
 
               echo "INFO: Executing original MediaWiki entrypoint (/entrypoint.sh) with CMD..."
-              exec /entrypoint.sh "apachectl" "-e" "info" "-D" "FOREGROUND"
+              exec docker-entrypoint.sh
+              exec php-fpm
           env:
             - name: MEDIAWIKI_DB_TYPE
               value: {{ .Values.mediawiki.database.type | quote }}
