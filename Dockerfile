@@ -135,7 +135,6 @@ COPY docker-startuptasks.sh /startuptasks.sh
 COPY LocalSettings.php /var/www/html/LocalSettings.php
 COPY CustomHooks.php /var/www/html/CustomHooks.php
 COPY composer.local.json /var/www/html/composer.local.json
-COPY robots.txt /var/www/html/robots.txt
 
 # --- Final Composer Update ---
 # Run composer update after getting all extensions, especially if composer.local.json
