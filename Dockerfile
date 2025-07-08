@@ -12,10 +12,9 @@ RUN set -eux; \
     apk add --no-cache \
     git \
     imagemagick \
-    librsvg2-bin \
+    librsvg \
     python3 \
     unzip \
-    # jq is crucial for parsing Vault secrets in your custom entrypoint script
     jq \
     ;
 
@@ -33,8 +32,6 @@ RUN set -eux; \
     icu-dev \
     lua5.1-dev \
     oniguruma-dev \
-    # For ldap, pcntl, zip, imagick, redis, memcached
-    # Check if these are already in base, but safer to include build deps
     openldap-dev \
     libzip-dev \
     imagemagick-dev \
@@ -49,12 +46,8 @@ RUN set -eux; \
     # imagick is installed via pecl, not docker-php-ext-install for ImageMagick
     ; \
     \
-    pecl install APCu-5.1.24; \
-    pecl install LuaSandbox-4.1.2; \
     pecl install imagick redis memcached; \
     docker-php-ext-enable \
-    apcu \
-    luasandbox \
     imagick \
     redis \
     memcached \
@@ -126,32 +119,22 @@ RUN set -eux; \
 # These files will be part of the image.
 # Your LocalSettings.php will likely be overridden by a mounted ConfigMap in Kubernetes.
 # Your custom entrypoint and startup tasks will be used.
-COPY php.ini /usr/local/etc/php/
-# If you have mediawiki.conf for Apache, ensure you're using an Apache base image.
-# If using FPM, this file is irrelevant.
-# COPY mediawiki.conf /etc/apache2/
-COPY docker-entrypoint.sh /entrypoint.sh
-COPY docker-startuptasks.sh /startuptasks.sh
+# COPY php.ini /usr/local/etc/php/
+# COPY docker-entrypoint.sh /entrypoint.sh
+# COPY docker-startuptasks.sh /startuptasks.sh
 COPY LocalSettings.php /var/www/html/LocalSettings.php
-COPY CustomHooks.php /var/www/html/CustomHooks.php
 
 # --- Final Permissions and Volume ---
 # /var/www/data is for SQLite or other data. The base image might use /var/www/html/data.
 # Ensure this aligns with your LocalSettings.php and volume mounts.
 # The `images` directory is typically where user uploads go.
-RUN mkdir -p /data \
-    && chmod a+rw /var/www/html/extensions/Widgets/compiled_templates
+RUN mkdir -p /var/www/data
 
-VOLUME /data
+VOLUME /var/www/data
 
 EXPOSE 9000
 
 # --- Entrypoint and Command ---
-# Stick to the official image's default ENTRYPOINT/CMD for PHP-FPM.
-# Your custom entrypoint wrapper will override this in Kubernetes.
-# The official image's ENTRYPOINT is usually 'docker-entrypoint.sh'
-# and its CMD is 'php-fpm'.
-# We keep these here as defaults, but your Helm chart will override them.
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["php-fpm"]
 
