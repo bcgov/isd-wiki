@@ -1,7 +1,7 @@
 # Use the official MediaWiki FPM stable image based on Alpine.
 # This image is designed to run non-root and is suitable for OpenShift.
 # It includes PHP-FPM, MediaWiki core, and many common PHP extensions.
-FROM mediawiki:fpm-stable-alpine
+FROM mediawiki:stable-fpm-alpine
 
 # --- System dependencies ---
 # Add necessary system packages not included in the base image,
