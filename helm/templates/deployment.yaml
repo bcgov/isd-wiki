@@ -76,11 +76,11 @@ spec:
                 exit 1
               fi
 
-              echo "INFO: Running custom startup tasks (/startuptasks.sh)..."
-              /startuptasks.sh # Execute your existing startup tasks script
+              # echo "INFO: Running custom startup tasks (/startuptasks.sh)..."
+              # /startuptasks.sh # Execute your existing startup tasks script
 
-              echo "INFO: Executing original MediaWiki entrypoint (/entrypoint.sh) with CMD..."
-              exec docker-entrypoint.sh
+              # echo "INFO: Executing original MediaWiki entrypoint (/entrypoint.sh) with CMD..."
+              # exec docker-entrypoint.sh
               exec php-fpm
           env:
             - name: MEDIAWIKI_DB_TYPE
