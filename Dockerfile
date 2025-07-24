@@ -1,6 +1,5 @@
 # Use the official MediaWiki FPM stable image based on Alpine.
 # This image is designed to run non-root and is suitable for OpenShift.
-# It includes PHP-FPM, MediaWiki core, and many common PHP extensions.
 FROM mediawiki:stable-fpm-alpine
 
 # --- System dependencies ---
@@ -16,6 +15,7 @@ RUN set -eux; \
     python3 \
     unzip \
     jq \
+    netcat-openbsd \
     ;
 
 # --- Install additional PHP extensions ---
@@ -87,6 +87,14 @@ RUN set -eux; \
     rm -rf .git; \
     chown -R www-data:www-data /var/www/html/extensions/VisualEditor;
 
+
+# Install Composer
+RUN curl -sS https://getcomposer.org/installer | php && \
+    mv composer.phar /usr/local/bin/composer
+
+# Install EquivSet
+RUN composer require wikimedia/equivset
+
 # # Install SyntaxHighlight_GeSHi
 # RUN set -eux; \
 #     git clone https://gerrit.wikimedia.org/r/mediawiki/extensions/SyntaxHighlight_GeSHi.git /var/www/html/extensions/SyntaxHighlight_GeSHi; \
@@ -115,18 +123,8 @@ RUN set -eux; \
     chmod 775 /var/www/html/extensions /var/www/html/skins; \
     chown -R www-data:www-data /var/www/html/extensions /var/www/html/skins;
 
-# --- Copy custom configuration files ---
-# These files will be part of the image.
-# Your LocalSettings.php will likely be overridden by a mounted ConfigMap in Kubernetes.
-# Your custom entrypoint and startup tasks will be used.
-# COPY php.ini /usr/local/etc/php/
-# COPY docker-entrypoint.sh /entrypoint.sh
-# COPY docker-startuptasks.sh /startuptasks.sh
-COPY LocalSettings.php /var/www/html/LocalSettings.php
-
 # --- Final Permissions and Volume ---
 # /var/www/data is for SQLite or other data. The base image might use /var/www/html/data.
-# Ensure this aligns with your LocalSettings.php and volume mounts.
 # The `images` directory is typically where user uploads go.
 RUN mkdir -p /var/www/data
 
@@ -135,7 +133,9 @@ VOLUME /var/www/data
 EXPOSE 9000
 
 # --- Entrypoint and Command ---
-ENTRYPOINT ["docker-entrypoint.sh"]
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["php-fpm"]
 
 # Best practice: Add labels for maintainability

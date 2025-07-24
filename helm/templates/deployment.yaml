@@ -102,7 +102,7 @@ spec:
             # (e.g., for upload directory, extensions, etc.)
           volumeMounts:
             - name: mediawiki-data
-              mountPath: /var/www/data # Matches your Dockerfile's SQLite directory
+              mountPath: /var/www/data
             - name: mediawiki-config
               mountPath: /var/www/html/LocalSettings.php
               subPath: LocalSettings.php # Mount the config file directly

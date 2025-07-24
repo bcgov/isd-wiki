@@ -1201,10 +1201,16 @@ mariadb:
       selector: {}
     ## @param secondary.extraVolumes Optionally specify extra list of additional volumes to the MariaDB secondary pod(s)
     ##
-    extraVolumes: []
+    extraVolumes: 
+      - name: mariadb-tmp
+        emptyDir:
+          medium: Memory
+          sizeLimit: 1Gi
     ## @param secondary.extraVolumeMounts Optionally specify extra list of additional volumeMounts for the MariaDB secondary container(s)
     ##
-    extraVolumeMounts: []
+    extraVolumeMounts:
+      - name: mariadb-tmp
+        mountPath: /opt/bitnami/mariadb/conf/
     ## @param secondary.initContainers Add additional init containers for the MariaDB secondary pod(s)
     ##
     initContainers: []
