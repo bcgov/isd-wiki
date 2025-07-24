@@ -92,8 +92,9 @@ RUN set -eux; \
 RUN curl -sS https://getcomposer.org/installer | php && \
     mv composer.phar /usr/local/bin/composer
 
-# Install EquivSet
-RUN composer require wikimedia/equivset
+# Install composer dependencies
+COPY composer.json /var/www/html/composer.json
+RUN composer install --no-dev --no-interaction
 
 # # Install SyntaxHighlight_GeSHi
 # RUN set -eux; \
