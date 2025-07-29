@@ -62,7 +62,7 @@ jobs:
           echo "chart_version=$CHART_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Package Helm Chart
-        run: helm package helm
+        run: helm package helm/charts/nginx/
 
       - name: Push Helm Chart to GHCR
         run: |
