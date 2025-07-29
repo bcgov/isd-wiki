@@ -103,6 +103,8 @@ spec:
           volumeMounts:
             - name: mediawiki-data
               mountPath: /var/www/data
+            - name: mediawiki-html
+              mountPath: /var/www/html
             - name: mediawiki-config
               mountPath: /var/www/html/LocalSettings.php
               subPath: LocalSettings.php # Mount the config file directly
@@ -120,6 +122,9 @@ spec:
         - name: mediawiki-data
           persistentVolumeClaim:
             claimName: {{ include "mediawiki.fullname" . }}-data
+        - name: mediawiki-html
+          persistentVolumeClaim:
+            claimName: {{ include "mediawiki.fullname" . }}-html
         - name: mediawiki-config
           configMap:
             name: {{ include "mediawiki.fullname" . }}-config
