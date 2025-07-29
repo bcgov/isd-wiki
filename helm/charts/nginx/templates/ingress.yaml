@@ -2,9 +2,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "ssoGateway.fullname" . }}-nginx-proxy
+  name: {{ include "mediawiki.fullname" . }}-nginx-proxy
   labels:
-    {{- include "ssoGateway.labels" . | nindent 4 }}
+    {{- include "mediawiki.labels" . | nindent 4 }}
     app.kubernetes.io/component: nginx-proxy
   {{- with .Values.ingress.annotations }}
   annotations:
@@ -22,7 +22,7 @@ spec:
             pathType: {{ .Values.ingress.pathType }}
             backend:
               service:
-                name: {{ include "ssoGateway.fullname" . }}-nginx-proxy
+                name: {{ include "mediawiki.fullname" . }}-nginx-proxy
                 port:
                   number: {{ .Values.service.port }} # External port of NGINX Service
   {{- if .Values.ingress.tls.enabled }}

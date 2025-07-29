@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "ssoGateway.fullname" . }}-svc
+  name: {{ include "mediawiki.fullname" . }}-svc
   labels:
-    {{- include "ssoGateway.labels" . | nindent 4 }}
+    {{- include "mediawiki.labels" . | nindent 4 }}
     app.kubernetes.io/component: nginx-proxy
   {{- with .Values.service.annotations }}
   annotations:
