@@ -5,16 +5,12 @@ Expand the name of the chart.
 {{- default .Chart.Name .Values.mediawiki.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{/*
-Create a default fully qualified app name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
-If release name contains chart name it will be used as a full name.
-*/}}
+
 {{- define "mediawiki.fullname" -}}
-{{- if .Values.mediawiki.fullnameOverride }}
+{{- if and .Values.mediawiki (hasKey .Values.mediawiki "fullnameOverride") }}
 {{- .Values.mediawiki.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
-{{- $name := default .Chart.Name .Values.mediawiki.nameOverride }}
+{{- $name := default .Chart.Name (and .Values.mediawiki (get .Values.mediawiki "nameOverride")) }}
 {{- if contains $name .Release.Name }}
 {{- .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -22,6 +18,7 @@ If release name contains chart name it will be used as a full name.
 {{- end }}
 {{- end }}
 {{- end }}
+
 
 {{/*
 Create chart name and version as used by the chart label.

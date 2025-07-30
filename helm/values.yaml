@@ -140,7 +140,12 @@ mediawiki:
   tolerations: []
 
   affinity: {}
-    
+
+
+isd-wiki-proxy:
+  fullnameOverride: "{{ .Release.Name }}-isdwiki"
+
+
 mariadb:
   enabled: true
   # Copyright Broadcom, Inc. All Rights Reserved.
