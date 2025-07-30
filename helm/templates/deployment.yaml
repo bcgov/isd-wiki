@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "isdWiki.fullname" . }}
+  name: {{ include "isd-wiki.fullname" . }}
   labels:
-    {{- include "isdWiki.labels" . | nindent 4 }}
+    {{- include "isd-wiki.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.mediawiki.autoscaling.enabled }}
   replicas: {{ .Values.mediawiki.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "isdWiki.selectorLabels" . | nindent 6 }}
+      {{- include "isd-wiki.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
@@ -37,8 +37,8 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "isdWiki.labels" . | nindent 8 }}
-        {{- include "isdWiki.selectorLabels" . | nindent 8 }}
+        {{- include "isd-wiki.labels" . | nindent 8 }}
+        {{- include "isd-wiki.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.mediawiki.imagePullSecrets }}
       imagePullSecrets:
@@ -86,7 +86,7 @@ spec:
             - name: MEDIAWIKI_DB_TYPE
               value: {{ .Values.mediawiki.database.type | quote }}
             - name: MEDIAWIKI_DB_HOST
-              value: {{ .Values.mediawiki.database.host | default (printf "%s-mysql" (include "isdWiki.fullname" .)) | quote }} # Adjust for other DBs
+              value: {{ .Values.mediawiki.database.host | default (printf "%s-mysql" (include "isd-wiki.fullname" .)) | quote }} # Adjust for other DBs
             - name: MEDIAWIKI_DB_NAME
               value: {{ .Values.mediawiki.database.name | quote }}
             - name: MEDIAWIKI_DB_USER
@@ -94,7 +94,7 @@ spec:
             # - name: MEDIAWIKI_DB_PASSWORD
             #   valueFrom:
             #     secretKeyRef:
-            #       name: {{ include "isdWiki.fullname" . }}-db-credentials
+            #       name: {{ include "isd-wiki.fullname" . }}-db-credentials
             #       key: password
             - name: MEDIAWIKI_SITE_NAME
               value: {{ .Values.mediawiki.siteName | quote }}
@@ -121,13 +121,13 @@ spec:
       volumes:
         - name: mediawiki-data
           persistentVolumeClaim:
-            claimName: {{ include "isdWiki.fullname" . }}-data
+            claimName: {{ include "isd-wiki.fullname" . }}-data
         - name: mediawiki-html
           persistentVolumeClaim:
-            claimName: {{ include "isdWiki.fullname" . }}-html
+            claimName: {{ include "isd-wiki.fullname" . }}-html
         - name: mediawiki-config
           configMap:
-            name: {{ include "isdWiki.fullname" . }}-config
+            name: {{ include "isd-wiki.fullname" . }}-config
       {{- with .Values.mediawiki.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

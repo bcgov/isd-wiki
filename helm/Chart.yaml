@@ -1,5 +1,5 @@
 apiVersion: v2
-name: isdWiki
+name: isd-wiki
 description: A Helm chart for deploying ISD MediaWiki with a database.
 version: 0.1.0
 appVersion: "1.39.3"
@@ -11,6 +11,6 @@ dependencies:
     version: "11.4.7"
     repository: oci://registry-1.docker.io/bitnamicharts 
     condition: mariadb.enabled
-  - name: isdWikiServer
+  - name: isd-wiki-server
     version: 1.0.0
-    repository: file://./charts/isdWikiServer
+    repository: file://./charts/isd-wiki-server
