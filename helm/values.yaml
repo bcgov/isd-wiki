@@ -142,7 +142,7 @@ mediawiki:
   affinity: {}
 
 
-isd-wiki-proxy:
+mediawikiServer:
   fullnameOverride: "{{ .Release.Name }}-isdwiki"
 
 

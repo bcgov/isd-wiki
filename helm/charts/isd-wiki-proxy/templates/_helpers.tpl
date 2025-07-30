@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "isd-wiki-proxy.name" -}}
+{{- define "mediawikiServer.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "isd-wiki-proxy.fullname" -}}
+{{- define "mediawikiServer.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,16 +26,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "isd-wiki-proxy.chart" -}}
+{{- define "mediawikiServer.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "isd-wiki-proxy.labels" -}}
-helm.sh/chart: {{ include "isd-wiki-proxy.chart" . }}
-{{ include "isd-wiki-proxy.selectorLabels" . }}
+{{- define "mediawikiServer.labels" -}}
+helm.sh/chart: {{ include "mediawikiServer.chart" . }}
+{{ include "mediawikiServer.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -45,17 +45,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "isd-wiki-proxy.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "isd-wiki-proxy.name" . }}
+{{- define "mediawikiServer.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "mediawikiServer.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "isd-wiki-proxy.serviceAccountName" -}}
+{{- define "mediawikiServer.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "isd-wiki-proxy.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "mediawikiServer.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
