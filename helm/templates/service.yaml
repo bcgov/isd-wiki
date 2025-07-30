@@ -1,15 +1,15 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "mediawiki.fullname" . }}
+  name: {{ include "isdWiki.fullname" . }}
   labels:
-    {{- include "mediawiki.labels" . | nindent 4 }}
+    {{- include "isdWiki.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.mediawiki.service.type }}
+  type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.mediawiki.service.port }}
+    - port: {{ .Values.service.port }}
       targetPort: http
       protocol: TCP
       name: http
   selector:
-    {{- include "mediawiki.selectorLabels" . | nindent 6 }}
+    {{- include "isdWiki.selectorLabels" . | nindent 4 }}

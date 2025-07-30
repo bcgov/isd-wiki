@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "mediawiki.fullname" . }}-data
+  name: {{ include "isdWiki.fullname" . }}-data
   labels:
-    {{- include "mediawiki.labels" . | nindent 4 }}
+    {{- include "isdWiki.labels" . | nindent 4 }}
 spec:
   accessModes:
     - ReadWriteOnce

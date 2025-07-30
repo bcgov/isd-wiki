@@ -1,16 +1,20 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "mediawiki.name" -}}
-{{- default .Chart.Name .Values.mediawiki.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- define "isdWiki.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-
-{{- define "mediawiki.fullname" -}}
-{{- if and .Values.mediawiki (hasKey .Values.mediawiki "fullnameOverride") }}
-{{- .Values.mediawiki.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{/*
+Create a default fully qualified app name.
+We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
+If release name contains chart name it will be used as a full name.
+*/}}
+{{- define "isdWiki.fullname" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
-{{- $name := default .Chart.Name (and .Values.mediawiki (get .Values.mediawiki "nameOverride")) }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
 {{- if contains $name .Release.Name }}
 {{- .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -19,20 +23,19 @@ Expand the name of the chart.
 {{- end }}
 {{- end }}
 
-
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "mediawiki.chart" -}}
+{{- define "isdWiki.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "mediawiki.labels" -}}
-helm.sh/chart: {{ include "mediawiki.chart" . }}
-{{ include "mediawiki.selectorLabels" . }}
+{{- define "isdWiki.labels" -}}
+helm.sh/chart: {{ include "isdWiki.chart" . }}
+{{ include "isdWiki.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -42,18 +45,18 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "mediawiki.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "mediawiki.name" . }}
+{{- define "isdWiki.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "isdWiki.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "mediawiki.serviceAccountName" -}}
-{{- if .Values.mediawiki.serviceAccount.create }}
-{{- default (include "mediawiki.fullname" .) .Values.mediawiki.serviceAccount.name }}
+{{- define "isdWiki.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "isdWiki.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
-{{- default "default" .Values.mediawiki.serviceAccount.name }}
+{{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}

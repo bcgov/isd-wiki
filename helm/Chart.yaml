@@ -1,5 +1,5 @@
 apiVersion: v2
-name: isdwiki
+name: isdWiki
 description: A Helm chart for deploying ISD MediaWiki with a database.
 version: 0.1.0
 appVersion: "1.39.3"

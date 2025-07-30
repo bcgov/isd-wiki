@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: {{ include "isdWikiServer.fullname" . }}
   labels:
-    {{- include "isdWikiServer.labels" . | nindent 4 }}
+   {{- include "isdWikiServer.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
@@ -38,7 +38,10 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.service.port }}
+              containerPort: {{ .Values.service.ports.http }}
+              protocol: TCP
+            - name: https
+              containerPort: {{ .Values.service.ports.https }}
               protocol: TCP
           livenessProbe:
             httpGet:
