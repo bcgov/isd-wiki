@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "mediawikiServer.name" -}}
+{{- define "isdWikiServer.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "mediawikiServer.fullname" -}}
+{{- define "isdWikiServer.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,16 +26,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "mediawikiServer.chart" -}}
+{{- define "isdWikiServer.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "mediawikiServer.labels" -}}
-helm.sh/chart: {{ include "mediawikiServer.chart" . }}
-{{ include "mediawikiServer.selectorLabels" . }}
+{{- define "isdWikiServer.labels" -}}
+helm.sh/chart: {{ include "isdWikiServer.chart" . }}
+{{ include "isdWikiServer.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -45,17 +45,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "mediawikiServer.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "mediawikiServer.name" . }}
+{{- define "isdWikiServer.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "isdWikiServer.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "mediawikiServer.serviceAccountName" -}}
+{{- define "isdWikiServer.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "mediawikiServer.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "isdWikiServer.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}

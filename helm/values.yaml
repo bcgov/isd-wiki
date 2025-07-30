@@ -142,7 +142,7 @@ mediawiki:
   affinity: {}
 
 
-mediawikiServer:
+isdWikiServer:
   fullnameOverride: "{{ .Release.Name }}-isdwiki"
 
 

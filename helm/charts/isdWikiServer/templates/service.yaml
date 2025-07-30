@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "mediawikiServer.fullname" . }}
+  name: {{ include "isdWikiServer.fullname" . }}
   labels:
-    {{- include "mediawikiServer.labels" . | nindent 4 }}
+    {{- include "isdWikiServer.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -24,4 +24,4 @@ spec:
       port: 8081
       targetPort: proxy-traffic
   selector:
-    {{- include "mediawikiServer.selectorLabels" . | nindent 4 }}
+    {{- include "isdWikiServer.selectorLabels" . | nindent 4 }}
