@@ -13,4 +13,4 @@ dependencies:
     condition: mariadb.enabled
   - name: mediawikiServer
     version: 1.0.0
-    repository: file://./charts/nginx
+    repository: file://./charts/mediawikiServer
