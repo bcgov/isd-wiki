@@ -190,7 +190,7 @@ mariadb:
   nameOverride: ""
   ## @param fullnameOverride String to fully override mariadb.fullname
   ##
-  fullnameOverride: "isd-wiki-db"
+  fullnameOverride: ""
   ## @param clusterDomain Default Kubernetes cluster domain
   ##
   clusterDomain: cluster.local

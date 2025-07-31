@@ -11,6 +11,6 @@ dependencies:
     version: "11.4.7"
     repository: oci://registry-1.docker.io/bitnamicharts 
     condition: mariadb.enabled
-  - name: isd-wiki-server
+  - name: nginx-server
     version: 1.0.0
-    repository: file://./charts/isd-wiki-server
+    repository: file://./charts/nginx-server

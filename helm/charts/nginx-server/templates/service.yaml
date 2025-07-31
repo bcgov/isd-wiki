@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "isd-wiki-server.fullname" . }}
+  name: {{ include "nginx-server.fullname" . }}
   labels:
-    {{- include "isd-wiki-server.labels" . | nindent 4 }}
+    {{- include "nginx-server.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -24,4 +24,4 @@ spec:
       port: 8081
       targetPort: proxy-traffic
   selector:
-    {{- include "isd-wiki-server.selectorLabels" . | nindent 4 }}
+    {{- include "nginx-server.selectorLabels" . | nindent 4 }}
