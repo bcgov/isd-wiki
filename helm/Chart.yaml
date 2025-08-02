@@ -7,10 +7,12 @@ type: application
 icon: https://upload.wikimedia.org/wikipedia/commons/d/dd/MediaWiki-2020-logo.svg
 
 dependencies:
-  - name: mariadb
-    version: "11.4.7"
-    repository: oci://registry-1.docker.io/bitnamicharts 
-    condition: mariadb.enabled
+  - name: crunchy-postgres
+    version: 0.5.0
+    repository: https://bcgov.github.io/crunchy-postgres/
+  - name: crunchy-postgres-tools
+    version: 0.3.0
+    repository: https://bcgov.github.io/crunchy-postgres/
   - name: nginx-server
     version: 1.0.0
     repository: file://./charts/nginx-server
