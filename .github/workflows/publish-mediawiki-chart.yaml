@@ -61,6 +61,11 @@ jobs:
           echo "chart_name=$CHART_NAME" >> "$GITHUB_OUTPUT"
           echo "chart_version=$CHART_VERSION" >> "$GITHUB_OUTPUT"
 
+      # Update the chart dependencies
+      - name: Update Helm dependencies
+        run: helm dependency update ./helm
+
+      # Package the Helm Chart
       - name: Package Helm Chart
         run: helm package helm
 
