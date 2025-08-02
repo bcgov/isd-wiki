@@ -61,6 +61,9 @@ jobs:
           echo "chart_name=$CHART_NAME" >> "$GITHUB_OUTPUT"
           echo "chart_version=$CHART_VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Add Helm repository
+        run: helm repo add bcgov-crunchy-postgres https://bcgov.github.io/crunchy-postgres/
+
       # Update the chart dependencies
       - name: Update Helm dependencies
         run: helm dependency update ./helm
