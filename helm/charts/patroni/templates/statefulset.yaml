@@ -51,9 +51,11 @@ spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets: {{ toYaml . | nindent 8 }}
       {{- end }}
-      {{- if .Values.serviceAccount.create }}
-      serviceAccountName: {{ include "patroni.serviceAccountName" . }}
-      {{- end }}
+      # {{- if .Values.serviceAccount.create }}
+      # serviceAccountName: {{ include "patroni.serviceAccountName" . }}
+      # {{- else }}
+      serviceAccountName: {{ .Values.global.licenseplate }}-vault
+      # {{- end }}
       {{- with .Values.podSecurityContext }}
       securityContext: {{ toYaml . | nindent 8 }}
       {{- end }}
