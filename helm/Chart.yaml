@@ -7,6 +7,9 @@ type: application
 icon: https://upload.wikimedia.org/wikipedia/commons/d/dd/MediaWiki-2020-logo.svg
 
 dependencies:
+  - name: nginx-server
+    version: 1.0.0
+    repository: file://./charts/nginx-server
   - name: patroni
     version: 0.0.4
-    repository: https://bcgov.github.io/nr-patroni-chart
+    repository: file://./charts/patroni
