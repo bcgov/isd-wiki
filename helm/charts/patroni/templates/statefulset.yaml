@@ -81,8 +81,7 @@ spec:
               fi
 
               # The original patroni entrypoint script, which will now inherit the environment variables.
-              # You may need to adjust this path based on the exact image you are using.
-              exec /usr/bin/patroni /usr/bin/patroni.yaml
+              exec /docker-entrypoint.sh
           env:
             - name: APP_DATABASE
               valueFrom:
