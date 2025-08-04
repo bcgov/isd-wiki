@@ -19,26 +19,26 @@ spec:
   template:
     metadata:
       labels: {{ include "patroni.selectorLabels" . | nindent 8 }}
-      annotations:
-        # 1. Vault injector configuration
-        vault.hashicorp.com/agent-inject: 'true'
-        # set to 'true' if you are going to connect and query vault from the application
-        vault.hashicorp.com/agent-inject-token: 'false' 
-        # this makes sure the secret vault will only change during pod restart
-        vault.hashicorp.com/agent-pre-populate-only: 'true' 
-        # Must match cluster. Use one of: k8s-silver, k8s-gold, k8s-golddr, k8s-emerald
-        vault.hashicorp.com/auth-path: auth/k8s-{{ .Values.global.cluster }}  
-        vault.hashicorp.com/namespace: platform-services
-        # licenseplate-nonprod or licenseplate-prod are your options
-        vault.hashicorp.com/role: {{ .Values.global.vault.role }} 
-        # # - The value is the path in Vault where the secret is located.
-        # vault.hashicorp.com/agent-inject-secret-isd-wiki-db-credentials: {{ .Values.global.licenseplate }}-{{ .Values.global.vault.engine }}/{{ .Values.global.vault.secret }}
-        # - The template Vault Agent should use for rendering a secret:
-        vault.hashicorp.com/agent-inject-template-db-credentials: |
-          {{`{{- with secret `}}"{{ .Values.global.licenseplate }}-{{ .Values.global.vault.engine }}/{{ .Values.global.vault.secret }}"{{` }}
-          {{- range $k, $v := .Data.data }}
-          {{ $k }}={{ $v }}{{ end -}}
-          {{- end `}} }}
+      # annotations:
+      #   # 1. Vault injector configuration
+      #   vault.hashicorp.com/agent-inject: 'true'
+      #   # set to 'true' if you are going to connect and query vault from the application
+      #   vault.hashicorp.com/agent-inject-token: 'false' 
+      #   # this makes sure the secret vault will only change during pod restart
+      #   vault.hashicorp.com/agent-pre-populate-only: 'true' 
+      #   # Must match cluster. Use one of: k8s-silver, k8s-gold, k8s-golddr, k8s-emerald
+      #   vault.hashicorp.com/auth-path: auth/k8s-{{ .Values.global.cluster }}  
+      #   vault.hashicorp.com/namespace: platform-services
+      #   # licenseplate-nonprod or licenseplate-prod are your options
+      #   vault.hashicorp.com/role: {{ .Values.global.vault.role }} 
+      #   # # - The value is the path in Vault where the secret is located.
+      #   # vault.hashicorp.com/agent-inject-secret-isd-wiki-db-credentials: {{ .Values.global.licenseplate }}-{{ .Values.global.vault.engine }}/{{ .Values.global.vault.secret }}
+      #   # - The template Vault Agent should use for rendering a secret:
+      #   vault.hashicorp.com/agent-inject-template-db-credentials: |
+      #     {{`{{- with secret `}}"{{ .Values.global.licenseplate }}-{{ .Values.global.vault.engine }}/{{ .Values.global.vault.secret }}"{{` }}
+      #     {{- range $k, $v := .Data.data }}
+      #     {{ $k }}={{ $v }}{{ end -}}
+      #     {{- end `}} }}
     spec:
       {{- if .Values.podAntiAffinity }}
       affinity:
@@ -52,9 +52,9 @@ spec:
       imagePullSecrets: {{ toYaml . | nindent 8 }}
       {{- end }}
       # {{- if .Values.serviceAccount.create }}
-      # serviceAccountName: {{ include "patroni.serviceAccountName" . }}
+      serviceAccountName: {{ include "patroni.serviceAccountName" . }}
       # {{- else }}
-      serviceAccountName: {{ .Values.global.licenseplate }}-vault
+      # serviceAccountName: {{ .Values.global.licenseplate }}-vault
       # {{- end }}
       {{- with .Values.podSecurityContext }}
       securityContext: {{ toYaml . | nindent 8 }}
@@ -131,7 +131,7 @@ spec:
                   key: replication-password
                   name: {{ $secretName }}
             - name: PATRONI_LOG_LEVEL
-              value: WARNING
+              value: DEBUG
             - name: PATRONI_NAME
               valueFrom:
                 fieldRef:
