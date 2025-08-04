@@ -16,7 +16,7 @@ imagePullSecrets: []
 nameOverride: ~
 fullnameOverride: ~
 
-credentials: {}
+credentials:
   # # Username of replication account
   # replicationUsername: replication
   # # Username of superuser account
