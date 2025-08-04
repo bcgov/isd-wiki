@@ -19,9 +19,9 @@ keywords:
   - patroni
   - postgresql
   - database
-home: https://bcgov.github.io/nr-patroni-chart
-sources:
-  - https://github.com/bcgov/nr-patroni-chart
+# home: https://bcgov.github.io/nr-patroni-chart
+# sources:
+#   - https://github.com/bcgov/nr-patroni-chart
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application. Versions are not expected to
 # follow Semantic Versioning. They should reflect the version the application is using.

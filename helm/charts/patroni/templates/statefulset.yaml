@@ -19,7 +19,7 @@ spec:
   template:
     metadata:
       labels: {{ include "patroni.selectorLabels" . | nindent 8 }}
-    annotations:
+      annotations:
         # 1. Vault injector configuration
         vault.hashicorp.com/agent-inject: 'true'
         # set to 'true' if you are going to connect and query vault from the application
