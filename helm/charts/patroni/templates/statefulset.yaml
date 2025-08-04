@@ -31,10 +31,10 @@ spec:
         vault.hashicorp.com/namespace: platform-services
         # licenseplate-nonprod or licenseplate-prod are your options
         vault.hashicorp.com/role: {{ .Values.global.vault.role }} 
-        # - The value is the path in Vault where the secret is located.
-        vault.hashicorp.com/agent-inject-secret-isd-db-user: {{ .Values.global.licenseplate }}-{{ .Values.global.vault.engine }}/{{ .Values.global.vault.secret }}
+        # # - The value is the path in Vault where the secret is located.
+        # vault.hashicorp.com/agent-inject-secret-isd-wiki-db-credentials: {{ .Values.global.licenseplate }}-{{ .Values.global.vault.engine }}/{{ .Values.global.vault.secret }}
         # - The template Vault Agent should use for rendering a secret:
-        vault.hashicorp.com/agent-inject-template-secrets: |
+        vault.hashicorp.com/agent-inject-template-db-credentials: |
           {{`{{- with secret `}}"{{ .Values.global.licenseplate }}-{{ .Values.global.vault.engine }}/{{ .Values.global.vault.secret }}"{{` }}
           {{- range $k, $v := .Data.data }}
           {{ $k }}={{ $v }}{{ end -}}
