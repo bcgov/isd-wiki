@@ -1,12 +1,3 @@
-{{/* vim: set filetype=mustache: */}}
-
-{{/*
-Expand the name of the project.
-*/}}
-{{- define "patroni.project" -}}
-{{- default .Chart.Name .Values.project | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
 {{/*
 Expand the name of the chart.
 */}}
@@ -27,7 +18,7 @@ If release name contains chart name it will be used as a full name.
 {{- if contains $name .Release.Name }}
 {{- .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- else }}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- printf "%s-%s" $name .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- end }}
 {{- end }}
 {{- end }}
@@ -44,18 +35,22 @@ Common labels
 */}}
 {{- define "patroni.labels" -}}
 helm.sh/chart: {{ include "patroni.chart" . }}
+app: {{ include "patroni.fullname" . }}
 {{ include "patroni.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
+app.kubernetes.io/component: database
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-app.kubernetes.io/part-of: {{ include "patroni.project" . }}
+app.kubernetes.io/part-of: {{ .Release.Name }}
+app.openshift.io/runtime: postgresql
 {{- end }}
 
 {{/*
 Selector labels
 */}}
 {{- define "patroni.selectorLabels" -}}
+cluster-name: {{ .Release.Name }}
 app.kubernetes.io/name: {{ include "patroni.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}

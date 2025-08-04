@@ -1,0 +1,13 @@
+{{- if .Values.transportServerClaim.enabled }}
+apiVersion: porter.devops.gov.bc.ca/v1alpha1
+kind: TransportServerClaim
+metadata:
+  name: {{ template "patroni.fullname" . }}-transport-server
+spec:
+  monitor:
+    interval: {{ .Values.transportServerClaim.interval }}
+    timeout: {{ .Values.transportServerClaim.timeout }}
+    type: tcp
+  service: {{ template "patroni.fullname" . }}
+  servicePort: 5432
+{{- end }}

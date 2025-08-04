@@ -1,234 +1,246 @@
-{{- $secretName := print (include "patroni.fullname" .) }}
-{{- if .Values.secretOverride }}
-{{- $secretName = .Values.secretOverride }}
-{{- end }}
-
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ include "patroni.fullname" . }}
+  name: {{ template "patroni.fullname" . }}
   labels: {{ include "patroni.labels" . | nindent 4 }}
 spec:
-  podManagementPolicy: OrderedReady
+  serviceName: {{ template "patroni.fullname" . }}
   replicas: {{ .Values.replicaCount }}
-  revisionHistoryLimit: 10
   selector:
     matchLabels: {{ include "patroni.selectorLabels" . | nindent 6 }}
-  serviceName: {{ include "patroni.fullname" . }}
   template:
     metadata:
-      labels: {{ include "patroni.selectorLabels" . | nindent 8 }}
-      # annotations:
-      #   # 1. Vault injector configuration
-      #   vault.hashicorp.com/agent-inject: 'true'
-      #   # set to 'true' if you are going to connect and query vault from the application
-      #   vault.hashicorp.com/agent-inject-token: 'false' 
-      #   # this makes sure the secret vault will only change during pod restart
-      #   vault.hashicorp.com/agent-pre-populate-only: 'true' 
-      #   # Must match cluster. Use one of: k8s-silver, k8s-gold, k8s-golddr, k8s-emerald
-      #   vault.hashicorp.com/auth-path: auth/k8s-{{ .Values.global.cluster }}  
-      #   vault.hashicorp.com/namespace: platform-services
-      #   # licenseplate-nonprod or licenseplate-prod are your options
-      #   vault.hashicorp.com/role: {{ .Values.global.vault.role }} 
-      #   # # - The value is the path in Vault where the secret is located.
-      #   # vault.hashicorp.com/agent-inject-secret-isd-wiki-db-credentials: {{ .Values.global.licenseplate }}-{{ .Values.global.vault.engine }}/{{ .Values.global.vault.secret }}
-      #   # - The template Vault Agent should use for rendering a secret:
-      #   vault.hashicorp.com/agent-inject-template-db-credentials: |
-      #     {{`{{- with secret `}}"{{ .Values.global.licenseplate }}-{{ .Values.global.vault.engine }}/{{ .Values.global.vault.secret }}"{{` }}
-      #     {{- range $k, $v := .Data.data }}
-      #     {{ $k }}={{ $v }}{{ end -}}
-      #     {{- end `}} }}
+      name: {{ template "patroni.fullname" . }}
+      labels: {{ include "patroni.labels" . | nindent 8 }}
     spec:
-      {{- if .Values.podAntiAffinity }}
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchLabels: {{ include "patroni.selectorLabels" . | nindent 18 }}
-              topologyKey: "kubernetes.io/hostname"
-      {{- end }}
-      {{- with .Values.imagePullSecrets }}
-      imagePullSecrets: {{ toYaml . | nindent 8 }}
-      {{- end }}
-      # {{- if .Values.serviceAccount.create }}
-      serviceAccountName: {{ include "patroni.serviceAccountName" . }}
-      # {{- else }}
-      # serviceAccountName: {{ .Values.global.licenseplate }}-vault
-      # {{- end }}
-      {{- with .Values.podSecurityContext }}
-      securityContext: {{ toYaml . | nindent 8 }}
-      {{- end }}
+      serviceAccountName: {{ template "patroni.serviceAccountName" . }}
       containers:
-        - name: postgresql
-          {{- with .Values.securityContext }}
-          securityContext: {{ toYaml . | nindent 12 }}
-          {{- end }}
-          image: "{{ .Values.image.repository }}/{{ .Values.image.name | default .Chart.Name }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          # command: ["/bin/sh"]
-          # args:
-          #   - "-c"
-          #   - |
-          #     echo "INFO: Sourcing database credentials from Vault..."
-          #     # Check if the secrets file exists and is not empty.
-          #     if [ -s /vault/secrets/db-credentials ]; then
-          #       . /vault/secrets/db-credentials
-          #       echo "INFO: Database credentials loaded from Vault."
-          #     else
-          #       echo "ERROR: /vault/secrets/db-credentials is empty or does not exist. Exiting."
-          #       exit 1
-          #     fi
-
-          #     # The original patroni entrypoint script, which will now inherit the environment variables.
-          #     exec /docker-entrypoint.sh
-          env:
-            - name: APP_DATABASE
-              valueFrom:
-                secretKeyRef:
-                  key: app-db-name
-                  name: {{ $secretName }}
-            - name: APP_USER
-              valueFrom:
-                secretKeyRef:
-                  key: app-db-username
-                  name: {{ $secretName }}
-            - name: APP_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: app-db-password
-                  name: {{ $secretName }}
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: status.podIP
-            - name: PATRONI_KUBERNETES_LABELS
-              value: {{ include "patroni.selectorLabels" . | fromYaml | toJson | squote }}
-            - name: PATRONI_KUBERNETES_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.namespace
-            - name: PATRONI_SUPERUSER_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  key: superuser-username
-                  name: {{ $secretName }}
-            - name: PATRONI_SUPERUSER_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: superuser-password
-                  name: {{ $secretName }}
-            - name: PATRONI_REPLICATION_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  key: replication-username
-                  name: {{ $secretName }}
-            - name: PATRONI_REPLICATION_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  key: replication-password
-                  name: {{ $secretName }}
-            - name: PATRONI_LOG_LEVEL
-              value: DEBUG
-            - name: PATRONI_NAME
-              valueFrom:
-                fieldRef:
-                  apiVersion: v1
-                  fieldPath: metadata.name
-            - name: PATRONI_POSTGRESQL_DATA_DIR
-              value: "{{ .Values.persistentVolume.mountPath }}/pgroot/data"
-            - name: PATRONI_POSTGRESQL_PGPASS
-              value: "/tmp/pgpass"
-            - name: PATRONI_POSTGRESQL_LISTEN
-              value: 0.0.0.0:5432
-            - name: PATRONI_RESTAPI_LISTEN
-              value: 0.0.0.0:8008
-            - name: PATRONI_SCOPE
-              value: {{ .Release.Name }}
-            - name: POSTGRESQL_MAX_CONNECTIONS
-              value: "500"
-            - name: POSTGRESQL_MAX_PREPARED_TRANSACTIONS
-              value: "500"
-          lifecycle:
-            preStop:
-              exec:
-                command:
-                  - /usr/bin/env
-                  - bash
-                  - -c
-                  - |
-                    # switch leader pod if the current pod is the leader
-                    if curl --fail http://localhost:8008/read-write; then
-                      patronictl switchover --force
-                    fi
-          {{- if .Values.probes.liveness.enabled }}
-          livenessProbe:
-            exec:
-              command:
-                - /usr/bin/env
-                - bash
-                - -c
-                - |
-                  set -Eeuo pipefail && curl -s localhost:8008/liveness | jq -e ". | select(.state == \"running\")"
-            initialDelaySeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
-          {{- end }}
-          ports:
-            - containerPort: {{ .Values.service.port }}
-              protocol: TCP
-            - containerPort: 8008
-              protocol: TCP
-          {{- if .Values.probes.readiness.enabled }}
-          readinessProbe:
-            exec:
-              command:
-                - /usr/bin/env
-                - bash
-                - -c
-                - |
-                  set -Eeuo pipefail && df "${PATRONI_POSTGRESQL_DATA_DIR:-{{ .Values.persistentVolume.mountPath }}}" --output=pcent | tail -n 1 | awk '{if ($1+0 > 90) exit 1; else exit 0;}' && pg_isready -q && curl -s localhost:8008/readiness | jq -e ". | select(.state == \"running\")"
-            initialDelaySeconds: 20
-            timeoutSeconds: 10
-            failureThreshold: 5
-          {{- end }}
-          resources: {{ toYaml .Values.resources | nindent 12 }}
-          securityContext:
-            allowPrivilegeEscalation: true
-          terminationMessagePath: "/dev/termination-log"
-          terminationMessagePolicy: File
-          volumeMounts:
-            - mountPath: {{ .Values.persistentVolume.mountPath }}
-              name: postgresql
-      dnsPolicy: ClusterFirst
-      restartPolicy: Always
-      terminationGracePeriodSeconds: 30
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        # see https://patroni.readthedocs.io/en/latest/rest_api.html#health-check-endpoints
+        readinessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /readiness
+            port: 8008
+          initialDelaySeconds: 3
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            scheme: HTTP
+            path: /liveness
+            port: 8008
+          initialDelaySeconds: 3
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        env:
+        - name: PGVERSION
+          value: {{ .Values.postgresMajorVersion | quote }}
+        {{- if .Values.allowNoSSL }}
+        - name: ALLOW_NOSSL
+          value: "true"
+        {{- end }}
+        - name: PGUSER_SUPERUSER
+          valueFrom:
+            secretKeyRef:
+              name: {{ if .Values.credentials.existingSecret }}{{ .Values.credentials.existingSecret }}{{ else }}{{ template "patroni.fullname" . }}{{ end }}
+              key: username-superuser
+        - name: PGUSER_ADMIN
+          valueFrom:
+            secretKeyRef:
+              name: {{ if .Values.credentials.existingSecret }}{{ .Values.credentials.existingSecret }}{{ else }}{{ template "patroni.fullname" . }}{{ end }}
+              key: username-admin
+        - name: PGUSER_STANDBY
+          valueFrom:
+            secretKeyRef:
+              name: {{ if .Values.credentials.existingSecret }}{{ .Values.credentials.existingSecret }}{{ else }}{{ template "patroni.fullname" . }}{{ end }}
+              key: username-standby
+        - name: PGPASSWORD_SUPERUSER
+          valueFrom:
+            secretKeyRef:
+              name: {{ if .Values.credentials.existingSecret }}{{ .Values.credentials.existingSecret }}{{ else }}{{ template "patroni.fullname" . }}{{ end }}
+              key: password-superuser
+        - name: PGPASSWORD_ADMIN
+          valueFrom:
+            secretKeyRef:
+              name: {{ if .Values.credentials.existingSecret }}{{ .Values.credentials.existingSecret }}{{ else }}{{ template "patroni.fullname" . }}{{ end }}
+              key: password-admin
+        - name: PGPASSWORD_STANDBY
+          valueFrom:
+            secretKeyRef:
+              name: {{ if .Values.credentials.existingSecret }}{{ .Values.credentials.existingSecret }}{{ else }}{{ template "patroni.fullname" . }}{{ end }}
+              key: password-standby
+        - name: KUBERNETES_ROLE_LABEL
+          value: {{ .Values.kubernetes.roleLabel }}
+        {{- if .Values.kubernetes.dcs.enable }}
+        - name: DCS_ENABLE_KUBERNETES_API
+          value: "true"
+        - name: KUBERNETES_LABELS
+          value: {{ (printf "{ \"app.kubernetes.io/name\": \"%s\", \"app.kubernetes.io/instance\": \"%s\" }" (include "patroni.name" .) .Release.Name) | quote }}
+        - name: KUBERNETES_SCOPE_LABEL
+          value: "app.kubernetes.io/instance"
+        {{- if .Values.kubernetes.configmaps.enable }}
+        - name: KUBERNETES_USE_CONFIGMAPS
+          value: "true"
+        {{- end }}
+        {{- end }}
+        {{- if .Values.etcd.enable }}
+        {{- if .Values.etcd.deployChart }}
+        - name: ETCD_DISCOVERY_DOMAIN
+          value: {{default (printf "%s-etcd" .Release.Name | trunc 63) .Values.etcd.discovery }}
+        {{- else }}
+        - name: ETCD_HOST
+          value: {{ .Values.etcd.host | quote }}
+        {{- end }}
+        {{- else if .Values.zookeeper.enable }}
+        {{- if .Values.zookeeper.deployChart }}
+        - name: ZOOKEEPER_HOSTS
+          value: {{(printf "'%s-zookeeper-headless:2181'" .Release.Name | trunc 63)}}
+        {{- else }}
+        - name: ZOOKEEPER_HOSTS
+          value: {{ .Values.zookeeper.hosts | quote }}
+        {{- end }}
+        {{- else if .Values.consul.enable }}
+        {{- if .Values.consul.deployChart }}
+        - name: PATRONI_CONSUL_HOST
+          value: {{(printf "'%s-consul'" .Release.Name | trunc 63)}}
+        {{- else }}
+        - name: PATRONI_CONSUL_HOST
+          value: {{ .Values.consul.host | quote }}
+        {{- end }}
+        {{- end }}
+        - name: SCOPE
+          value: {{ .Release.Name }}
+        {{- if .Values.standby.enabled }}
+        - name: STANDBY_HOST
+          value: {{ .Values.standby.host | quote }}
+        - name: STANDBY_PORT
+          value: {{ .Values.standby.port | quote }}
+        {{- end }}
+        # WAL-G storage configuration
+        - name: USE_WALE
+          value: ""
+        {{- if .Values.walG.enabled }}
+        - name: USE_WALG
+          value: 'true'
+        - name: USE_WALG_BACKUP
+          value: 'true'
+        - name: USE_WALG_RESTORE
+          value: 'true'
+        {{- if .Values.walG.scheduleCronJob }}
+        - name: BACKUP_SCHEDULE
+          value: {{ .Values.walG.scheduleCronJob | quote}}
+        {{- end }}
+        {{- if .Values.walG.retainBackups }}
+        - name: BACKUP_NUM_TO_RETAIN
+          value: {{ .Values.walG.retainBackups | quote}}
+        {{- end }}
+        {{- if .Values.walG.backupThresholdMegabytes }}
+        - name: WALE_BACKUP_THRESHOLD_MEGABYTES
+          value: {{ .Values.walG.backupThresholdMegabytes | quote}}
+        {{- end }}
+        {{- if .Values.walG.backupThresholdPercentage }}
+        - name: WALE_BACKUP_THRESHOLD_PERCENTAGE
+          value: {{ .Values.walG.backupThresholdPercentage | quote}}
+        {{- end }}
+        {{- if eq .Values.walG.storage "pvc"}}
+        - name: WALG_FILE_PREFIX
+          value: {{ .Values.walG.pvc.mountPath }}
+        {{- end }}
+        {{- end }}
+        - name: PGROOT
+          value: "{{ .Values.persistentVolume.mountPath }}/pgroot"
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        {{- if .Values.env }}
+        {{- range $key, $val := .Values.env }}
+        - name: {{  $key | quote | upper }}
+          value: {{ $val | quote }}
+        {{- end }}
+        {{- end }}
+        ports:
+        - containerPort: 8008
+        - containerPort: 5432
+        volumeMounts:
+        - name: storage-volume
+          mountPath: "{{ .Values.persistentVolume.mountPath }}"
+          subPath: "{{ .Values.persistentVolume.subPath }}"
+        - mountPath: /etc/patroni
+          name: patroni-config
+          readOnly: true
+        {{- if and (.Values.walG.enabled) (eq .Values.walG.storage "pvc") }}
+        - mountPath: {{ .Values.walG.pvc.mountPath }}
+          name: backups-volume
+        {{- end }}
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- if .Values.schedulerName }}
+      schedulerName: {{ .Values.schedulerName }}
+    {{- end }}
+    {{- if .Values.affinity }}
+      affinity:
+{{ .Values.affinity | toYaml | indent 8 }}
+    {{- else if .Values.affinityTemplate }}
+      affinity:
+{{ tpl .Values.affinityTemplate . | indent 8 }}
+    {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       volumes:
-        - name: postgresql
-          {{- if .Values.persistentVolume.enabled }}
-          persistentVolumeClaim:
-            claimName: postgresql
-          {{- else }}
-          emptyDir: {}
-          {{- end }}
-  updateStrategy:
-    type: RollingUpdate
+      - name: patroni-config
+        secret:
+          secretName: {{ template "patroni.fullname" . }}
+      {{- if not .Values.persistentVolume.enabled }}
+      - name: storage-volume
+        emptyDir: {}
+      {{- end }}
+      {{- if and (.Values.walG.enabled) (eq .Values.walG.storage "pvc") }}
+      - name: backups-volume
+        persistentVolumeClaim:
+          claimName: {{ template "patroni.fullname" . }}-backups
+      {{- end }}
   {{- if .Values.persistentVolume.enabled }}
   volumeClaimTemplates:
     - metadata:
+        name: storage-volume
         annotations:
-          volume.beta.kubernetes.io/storage-class: {{ .Values.persistentVolume.storageClass }}
-          {{- with .Values.persistentVolume.annotations }}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
+        {{- if .Values.persistentVolume.annotations }}
+{{ toYaml .Values.persistentVolume.annotations | indent 8 }}
+        {{- end }}
+        # https://github.com/helm/helm/issues/7998
+        # Let's use more generic labels to make future updates flexible; otherwise it will hit an error like below:
+        # Error "Forbidden: updates to statefulset spec for fields other than 'replicas', 'template', and 'updateStrategy' are forbidden" for field "spec".
         labels: {{ include "patroni.selectorLabels" . | nindent 10 }}
-        name: postgresql
       spec:
-        accessModes: {{ toYaml .Values.persistentVolume.accessModes | nindent 10 }}
+        accessModes:
+{{ toYaml .Values.persistentVolume.accessModes | indent 8 }}
         resources:
           requests:
-            storage: {{ .Values.persistentVolume.size }}
-        storageClassName: {{ .Values.persistentVolume.storageClass }}
+            storage: "{{ .Values.persistentVolume.size }}"
+      {{- if .Values.persistentVolume.storageClass }}
+      {{- if (eq "-" .Values.persistentVolume.storageClass) }}
+        storageClassName: ""
+      {{- else }}
+        storageClassName: "{{ .Values.persistentVolume.storageClass }}"
+      {{- end }}
+      {{- end }}
   {{- end }}

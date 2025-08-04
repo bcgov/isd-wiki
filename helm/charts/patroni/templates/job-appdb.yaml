@@ -1,0 +1,76 @@
+{{- if not .Values.standby.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "patroni.fullname" . }}
+  labels: {{ include "patroni.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": "post-install,post-upgrade"
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels: {{ include "patroni.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: initdb
+          image: postgres:14.2-alpine
+          imagePullPolicy: Always
+          command: ["bash", "-c"]
+          args:
+            - |
+              set -euo pipefail;
+              echo starting
+
+              usernames=()
+              passwords=()
+              while IFS= read -r line; do
+                key=$(echo $line | cut -f 1 -d '=')
+                val=$(echo $line | cut -f 2 -d '=')
+                if [[ "$key" = u* ]]; then usernames+=("$val"); else passwords+=("$val"); fi
+              done <<<$(printenv | sort | sed -nr '/username-appuser|password-appuser/p')
+
+              index=0
+              for username in "${usernames[@]}"
+              do
+                password="${passwords[$index]}"
+
+                echo "select 'create database $username' where not exists (select from pg_database where datname = '$username')\gexec" | psql -d postgres
+                psql -d $username -qta --set on_error_stop=1 <<eof
+                do
+                \$do\$
+                begin
+                  if not exists (select from pg_catalog.pg_roles where rolname = '$username') then
+                    create role $username login password '$password';
+                    grant all privileges on database $username to $username;
+                    grant all on schema public to $username;
+                  end if;
+                end
+                \$do\$;
+              eof
+
+                index=$((index + 1))
+              done
+              echo "done"
+          env:
+            - name: PGHOST
+              value: {{ template "patroni.fullname" . }}
+            - name: PGPORT
+              value: "5432"
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "patroni.fullname" . }}
+                  key: username-superuser
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "patroni.fullname" . }}
+                  key: password-superuser
+          envFrom:
+            - secretRef:
+                name: {{ template "patroni.fullname" . }}-appusers
+      restartPolicy: Never
+  backoffLimit: 1
+{{- end }}

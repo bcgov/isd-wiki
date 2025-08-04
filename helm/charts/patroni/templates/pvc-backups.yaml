@@ -1,0 +1,14 @@
+{{- if and (.Values.walG.enabled) (eq .Values.walG.storage "pvc") }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ template "patroni.fullname" . }}-backups
+  labels: {{ include "patroni.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.walG.pvc.size }}
+  storageClassName: {{ .Values.walG.pvc.storageClass }}
+{{- end }}

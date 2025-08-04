@@ -1,20 +1,14 @@
 {{- if .Values.networkPolicy.enabled }}
----
-apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
 metadata:
-  name: allow-{{ include "patroni.fullname" . }}-to-{{ include "patroni.fullname" . }}-cluster
+  name: {{ template "patroni.fullname" . }}-intra-release
   labels: {{ include "patroni.labels" . | nindent 4 }}
 spec:
+  podSelector:
+    matchLabels: {{ include "patroni.selectorLabels" . | nindent 6 }}
   ingress:
   - from:
     - podSelector:
         matchLabels: {{ include "patroni.selectorLabels" . | nindent 10 }}
-    ports:
-      - port: {{ .Values.service.port }}
-        protocol: TCP
-      - port: 8008
-        protocol: TCP
-  podSelector:
-    matchLabels: {{ include "patroni.selectorLabels" . | nindent 6 }}
 {{- end }}

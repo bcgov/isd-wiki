@@ -11,5 +11,5 @@ dependencies:
     version: 1.0.0
     repository: file://./charts/nginx-server
   - name: patroni
-    version: 0.0.4
+    version: 1.6.1
     repository: file://./charts/patroni
