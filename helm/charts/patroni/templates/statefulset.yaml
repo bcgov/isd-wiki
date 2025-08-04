@@ -66,6 +66,23 @@ spec:
           {{- end }}
           image: "{{ .Values.image.repository }}/{{ .Values.image.name | default .Chart.Name }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh"]
+          args:
+            - "-c"
+            - |
+              echo "INFO: Sourcing database credentials from Vault..."
+              # Check if the secrets file exists and is not empty.
+              if [ -s /vault/secrets/db-credentials ]; then
+                . /vault/secrets/db-credentials
+                echo "INFO: Database credentials loaded from Vault."
+              else
+                echo "ERROR: /vault/secrets/db-credentials is empty or does not exist. Exiting."
+                exit 1
+              fi
+
+              # The original patroni entrypoint script, which will now inherit the environment variables.
+              # You may need to adjust this path based on the exact image you are using.
+              exec /usr/bin/patroni /usr/bin/patroni.yaml
           env:
             - name: APP_DATABASE
               valueFrom:
