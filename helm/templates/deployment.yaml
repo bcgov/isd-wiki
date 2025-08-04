@@ -57,31 +57,31 @@ spec:
             - name: http
               containerPort: 80
               protocol: TCP
-          command: ["/bin/sh"]
-          args:
-            - -c
-            - |
-              echo "INFO: container starting entrypoint..."
-              if [ -s /vault/secrets/isd-db-user ]; then
-                SECRET_CONTENT=$(cat /vault/secrets/isd-db-user)
-                export MEDIAWIKI_DB_PASSWORD=$(echo "${SECRET_CONTENT}" | tr -d '\n\r ')
-                echo "INFO: Password loaded from Vault secret. Length: ${#MEDIAWIKI_DB_PASSWORD}"
-              else
-                echo "ERROR: /vault/secrets/isd-db-user is empty or does not exist. Exiting."
-                exit 1
-              fi
+          # command: ["/bin/sh"]
+          # args:
+          #   - -c
+          #   - |
+          #     echo "INFO: container starting entrypoint..."
+          #     if [ -s /vault/secrets/isd-db-user ]; then
+          #       SECRET_CONTENT=$(cat /vault/secrets/isd-db-user)
+          #       export MEDIAWIKI_DB_PASSWORD=$(echo "${SECRET_CONTENT}" | tr -d '\n\r ')
+          #       echo "INFO: Password loaded from Vault secret. Length: ${#MEDIAWIKI_DB_PASSWORD}"
+          #     else
+          #       echo "ERROR: /vault/secrets/isd-db-user is empty or does not exist. Exiting."
+          #       exit 1
+          #     fi
 
-              if [ -z "${MEDIAWIKI_DB_PASSWORD}" ]; then
-                echo "ERROR: MEDIAWIKI_DB_PASSWORD variable is empty after loading from secret. Exiting."
-                exit 1
-              fi
+          #     if [ -z "${MEDIAWIKI_DB_PASSWORD}" ]; then
+          #       echo "ERROR: MEDIAWIKI_DB_PASSWORD variable is empty after loading from secret. Exiting."
+          #       exit 1
+          #     fi
 
-              # echo "INFO: Running custom startup tasks (/startuptasks.sh)..."
-              # /startuptasks.sh # Execute your existing startup tasks script
+          #     # echo "INFO: Running custom startup tasks (/startuptasks.sh)..."
+          #     # /startuptasks.sh # Execute your existing startup tasks script
 
-              # echo "INFO: Executing original MediaWiki entrypoint (/entrypoint.sh) with CMD..."
-              # exec docker-entrypoint.sh
-              exec php-fpm
+          #     # echo "INFO: Executing original MediaWiki entrypoint (/entrypoint.sh) with CMD..."
+          #     # exec docker-entrypoint.sh
+          #     exec php-fpm
           env:
             - name: MEDIAWIKI_DB_TYPE
               value: {{ .Values.mediawiki.database.type | quote }}
