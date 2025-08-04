@@ -190,9 +190,9 @@ spec:
                 - -c
                 - |
                   set -Eeuo pipefail && df "${PATRONI_POSTGRESQL_DATA_DIR:-{{ .Values.persistentVolume.mountPath }}}" --output=pcent | tail -n 1 | awk '{if ($1+0 > 90) exit 1; else exit 0;}' && pg_isready -q && curl -s localhost:8008/readiness | jq -e ". | select(.state == \"running\")"
-            initialDelaySeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
+            initialDelaySeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 5
           {{- end }}
           resources: {{ toYaml .Values.resources | nindent 12 }}
           securityContext:
