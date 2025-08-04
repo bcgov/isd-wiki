@@ -91,11 +91,11 @@ spec:
               value: {{ .Values.mediawiki.database.name | quote }}
             - name: MEDIAWIKI_DB_USER
               value: {{ .Values.mediawiki.database.user | quote }}
-            # - name: MEDIAWIKI_DB_PASSWORD
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: {{ include "isd-wiki.fullname" . }}-db-credentials
-            #       key: password
+            - name: MEDIAWIKI_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: patroni-{{ include "isd-wiki.fullname" . }}
+                  key: app-db-password
             - name: MEDIAWIKI_SITE_NAME
               value: {{ .Values.mediawiki.siteName | quote }}
             # Add more environment variables for MediaWiki configuration as needed
