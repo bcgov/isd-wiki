@@ -90,17 +90,17 @@ spec:
             - name: MEDIAWIKI_DB_NAME
               valueFrom:
                 secretKeyRef:
-                  name: patroni-{{ include "isd-wiki.fullname" . }}
+                  name: patroni-{{ include "isd-wiki.fullname" . }}-db
                   key: app-db-name
             - name: MEDIAWIKI_DB_USER
               valueFrom:
                 secretKeyRef:
-                  name: patroni-{{ include "isd-wiki.fullname" . }}
+                  name: patroni-{{ include "isd-wiki.fullname" . }}-db
                   key: app-db-username
             - name: MEDIAWIKI_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: patroni-{{ include "isd-wiki.fullname" . }}
+                  name: patroni-{{ include "isd-wiki.fullname" . }}-db
                   key: app-db-password
             - name: MEDIAWIKI_SITE_NAME
               value: {{ .Values.mediawiki.siteName | quote }}
