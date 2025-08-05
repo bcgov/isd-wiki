@@ -12,10 +12,10 @@ set -e
 
 
 # Copy MediaWiki core files to /var/www/html
-if [ ! -f /var/www/html/index.php ]; then
-  echo "Initializing /var/www/html with MediaWiki core files..."
-  cp -a /usr/src/mediawiki/. /var/www/html/
-fi
+# if [ ! -f /var/www/html/index.php ]; then
+#   echo "Initializing /var/www/html with MediaWiki core files..."
+#   cp -a /usr/src/mediawiki/. /var/www/html/
+# fi
 
 if [ -z "$MEDIAWIKI_DB_HOST" ]; then
 	if [ -n "$MYSQL_PORT_3306_TCP_ADDR" ]; then

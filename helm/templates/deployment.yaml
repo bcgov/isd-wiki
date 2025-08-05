@@ -47,6 +47,26 @@ spec:
       serviceAccountName: {{ .Values.global.serviceAccount.name }}
       securityContext:
         {{- toYaml .Values.mediawiki.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: copy-mediawiki-files
+          image: "{{ .Values.mediawiki.image.repository }}:{{ .Values.mediawiki.image.tag }}"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              if [ ! -f /var/www/html/index.php ]; then
+                echo "Copying MediaWiki files to shared volume..."
+                # Copy source files from the base image's working directory.
+                # Since the base image has the files in /var/www/html, and our PVC is mounted there, we must
+                # copy from the original image path to the mounted volume.
+                # The corrected command is to copy from the base image's location to the mounted volume.
+                cp -av /var/www/html/. /copy-dest
+                echo "Copy complete."
+              else
+                echo "MediaWiki files already exist on the volume. Skipping copy."
+              fi
+          volumeMounts:
+            - name: mediawiki-html
+              mountPath: /copy-dest
       containers:
         - name: mediawiki
           securityContext:
@@ -57,6 +77,7 @@ spec:
             - name: http
               containerPort: 80
               protocol: TCP
+          command: ["/bin/bash", "-c", "sleep infinity"]
           # command: ["/bin/sh"]
           # args:
           #   - -c
