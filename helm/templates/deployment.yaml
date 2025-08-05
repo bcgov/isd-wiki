@@ -117,19 +117,15 @@ spec:
               value: {{ .Values.mediawiki.siteName | quote }}
             # Add more environment variables for MediaWiki configuration as needed
             # (e.g., for upload directory, extensions, etc.)
-          volumes:
-            - name: mediawiki-data
-              persistentVolumeClaim:
-                claimName: {{ include "isd-wiki.fullname" . }}-data
+          volumeMounts:
+            # Mount the shared volume for both PHP and NGINX
             - name: mediawiki-html
-              persistentVolumeClaim:
-                claimName: {{ include "isd-wiki.fullname" . }}-html
+              mountPath: /var/www/html
+            - name: mediawiki-data
+              mountPath: /var/www/data
             - name: mediawiki-config
-              configMap:
-                name: {{ include "isd-wiki.fullname" . }}-config
-            - name: nginx-config
-              configMap:
-                name: {{ include "isd-wiki.fullname" . }}-nginx-config
+              mountPath: /var/www/html/LocalSettings.php
+              subPath: LocalSettings.php
           livenessProbe:
             httpGet:
               path: /
@@ -150,6 +146,9 @@ spec:
         - name: mediawiki-config
           configMap:
             name: {{ include "isd-wiki.fullname" . }}-config
+        - name: nginx-config
+          configMap:
+            name: {{ include "isd-wiki.fullname" . }}-nginx-config
       {{- with .Values.mediawiki.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
