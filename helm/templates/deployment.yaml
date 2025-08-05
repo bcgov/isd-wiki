@@ -77,7 +77,7 @@ spec:
             - name: http
               containerPort: 80
               protocol: TCP
-          command: ["/bin/bash", "-c", "sleep infinity"]
+          command: ["/bin/sh", "-c", "sleep infinity"]
           # command: ["/bin/sh"]
           # args:
           #   - -c
