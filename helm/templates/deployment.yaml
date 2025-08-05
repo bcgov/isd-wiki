@@ -48,61 +48,51 @@ spec:
       securityContext:
         {{- toYaml .Values.mediawiki.podSecurityContext | nindent 8 }}
       initContainers:
-        - name: copy-mediawiki-files
-          image: "{{ .Values.mediawiki.image.repository }}:{{ .Values.mediawiki.image.tag }}"
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              if [ ! -f /var/www/html/index.php ]; then
-                echo "Copying MediaWiki files to shared volume..."
-                # Copy source files from the base image's working directory.
-                # Since the base image has the files in /var/www/html, and our PVC is mounted there, we must
-                # copy from the original image path to the mounted volume.
-                # The corrected command is to copy from the base image's location to the mounted volume.
-                cp -av /var/www/html/. /copy-dest
-                echo "Copy complete."
-              else
-                echo "MediaWiki files already exist on the volume. Skipping copy."
-              fi
-          volumeMounts:
-            - name: mediawiki-html
-              mountPath: /copy-dest
+       - name: copy-mediawiki-files
+         image: "{{ .Values.mediawiki.image.repository }}:{{ .Values.mediawiki.image.tag }}"
+         command: ["/bin/sh", "-c"]
+         args:
+          # The official MediaWiki image has the files in /var/www/html.
+          # We copy them from that location into a different, temporary mount point for the volume.
+          - "cp -av /var/www/html/. /copy-dest/"
+         volumeMounts:
+          - name: mediawiki-html
+            mountPath: /copy-dest
       containers:
+        - name: nginx
+          image: "nginx:stable-alpine"
+          imagePullPolicy: {{ .Values.nginx.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          volumeMounts:
+            # The NGINX server will read the PHP files from this shared volume
+            - name: mediawiki-html
+              mountPath: /var/www/html
+            # Mount a ConfigMap for the NGINX configuration
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+          # Configure NGINX to listen on port 80 and forward PHP requests to the PHP-FPM container
+          env:
+            - name: PHP_FPM_HOST
+              value: localhost
+            - name: PHP_FPM_PORT
+              value: "9000"
         - name: mediawiki
           securityContext:
             {{- toYaml .Values.mediawiki.securityContext | nindent 16 }}
           image: "{{ .Values.mediawiki.image.repository }}:{{ .Values.mediawiki.image.tag }}"
           imagePullPolicy: {{ .Values.mediawiki.image.pullPolicy }}
           ports:
-            - name: http
-              containerPort: 80
+            - name: fpm
+              containerPort: 9000
               protocol: TCP
           command: ["/bin/sh", "-c", "sleep infinity"]
-          # command: ["/bin/sh"]
-          # args:
-          #   - -c
-          #   - |
-          #     echo "INFO: container starting entrypoint..."
-          #     if [ -s /vault/secrets/isd-db-user ]; then
-          #       SECRET_CONTENT=$(cat /vault/secrets/isd-db-user)
-          #       export MEDIAWIKI_DB_PASSWORD=$(echo "${SECRET_CONTENT}" | tr -d '\n\r ')
-          #       echo "INFO: Password loaded from Vault secret. Length: ${#MEDIAWIKI_DB_PASSWORD}"
-          #     else
-          #       echo "ERROR: /vault/secrets/isd-db-user is empty or does not exist. Exiting."
-          #       exit 1
-          #     fi
-
-          #     if [ -z "${MEDIAWIKI_DB_PASSWORD}" ]; then
-          #       echo "ERROR: MEDIAWIKI_DB_PASSWORD variable is empty after loading from secret. Exiting."
-          #       exit 1
-          #     fi
-
-          #     # echo "INFO: Running custom startup tasks (/startuptasks.sh)..."
-          #     # /startuptasks.sh # Execute your existing startup tasks script
-
-          #     # echo "INFO: Executing original MediaWiki entrypoint (/entrypoint.sh) with CMD..."
-          #     # exec docker-entrypoint.sh
-          #     exec php-fpm
+          # # Use custom entrypoint script here. It will now run on the shared volume.
+          # command: ["sh"]
+          # args: ["./docker-entrypoint.sh"]
           env:
             - name: MEDIAWIKI_DB_TYPE
               value: {{ .Values.mediawiki.database.type | quote }}
@@ -127,14 +117,19 @@ spec:
               value: {{ .Values.mediawiki.siteName | quote }}
             # Add more environment variables for MediaWiki configuration as needed
             # (e.g., for upload directory, extensions, etc.)
-          volumeMounts:
+          volumes:
             - name: mediawiki-data
-              mountPath: /var/www/data
+              persistentVolumeClaim:
+                claimName: {{ include "isd-wiki.fullname" . }}-data
             - name: mediawiki-html
-              mountPath: /var/www/html
+              persistentVolumeClaim:
+                claimName: {{ include "isd-wiki.fullname" . }}-html
             - name: mediawiki-config
-              mountPath: /var/www/html/LocalSettings.php
-              subPath: LocalSettings.php # Mount the config file directly
+              configMap:
+                name: {{ include "isd-wiki.fullname" . }}-config
+            - name: nginx-config
+              configMap:
+                name: {{ include "isd-wiki.fullname" . }}-nginx-config
           livenessProbe:
             httpGet:
               path: /
