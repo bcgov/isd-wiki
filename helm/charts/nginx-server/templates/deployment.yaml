@@ -98,7 +98,6 @@ spec:
           persistentVolumeClaim:
             claimName: isd-wiki-html
             readOnly: true
-
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
