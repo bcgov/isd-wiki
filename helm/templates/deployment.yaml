@@ -62,7 +62,7 @@ spec:
       containers:
        - name: nginx
          securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- toYaml .Values.nginx.securityContext | nindent 12 }}
          image: "{{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag | default .Chart.AppVersion }}"
          imagePullPolicy: {{ .Values.nginx.image.pullPolicy }}
          ports:
@@ -73,7 +73,7 @@ spec:
             containerPort: {{ .Values.nginx.service.ports.https }}
             protocol: TCP
          resources:
-          {{- toYaml .Values.resources | nindent 12 }}
+          {{- toYaml .Values.nginx.resources | nindent 12 }}
          volumeMounts:
           - name: empty-dir
             mountPath: /tmp
