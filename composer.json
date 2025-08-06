@@ -1,6 +1,6 @@
 {
     "name": "mediawiki/mediawiki",
-    "description": "The MediaWiki application for the ISD Wiki",
+    "description": "The MediaWiki application for your own wiki.",
     "type": "project",
     "license": "GPL-2.0-or-later",
     "homepage": "https://www.mediawiki.org/",
@@ -8,20 +8,23 @@
         "issues": "https://phabricator.wikimedia.org/",
         "docs": "https://www.mediawiki.org/wiki/Special:MyLanguage/Documentation"
     },
+    "repositories": [
+        {
+            "type": "git",
+            "url": "https://gerrit.wikimedia.org/r/mediawiki/core.git"
+        }
+    ],
     "require": {
         "composer/installers": "^2.0",
-        "mediawiki/core": "1.44.0",
-        "wikimedia/equivset": "1.7.1",
-        "mediawiki/composer-merge-plugin": "2.0.1",
-        "wikimedia/cldr": "2024.08.01",
-        "wikimedia/css-sanitizer": "4.0.0",
-        "wikimedia/html-purifier": "4.15.0",
-        "wikimedia/less.php": "1.8.0",
-        "wikimedia/php-cs-fixer-config": "1.1.0",
-        "wikimedia/purtle": "1.0.1",
-        "wikimedia/style-guide": "1.0.0",
-        "wikimedia/telemetry": "2.0.0",
-        "wikimedia/utf8": "1.0.0"
+        "mediawiki/core": "~1.44.0",
+        "wikimedia/cldr": "^2024.08",
+        "wikimedia/css-sanitizer": "~4.0.0",
+        "wikimedia/html-purifier": "~4.15.0",
+        "wikimedia/less.php": "~1.8.0",
+        "wikimedia/php-cs-fixer-config": "~1.1.0",
+        "wikimedia/style-guide": "~1.0.0",
+        "wikimedia/telemetry": "~2.0.0",
+        "wikimedia/utf8": "~1.0.0"
     },
     "autoload": {
         "files": [
