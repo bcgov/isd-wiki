@@ -214,13 +214,17 @@ fi
 # Ensure images folder exists
 mkdir -p images
 
-# Fix file ownership and permissions for the cache directory
-# Get the current user and group
+# Get the current user and group ID from the environment
 CURRENT_USER=$(id -u)
 CURRENT_GROUP=$(id -g)
-# Correct the permissions on the cache directory so the user can write to it
-chown -R $CURRENT_USER:$CURRENT_GROUP cache
-chmod -R 775 cache
+
+# Ensure the cache directory is writable by the current user
+chown -R $CURRENT_USER:$CURRENT_GROUP /var/www/html/cache
+chmod -R 775 /var/www/html/cache
+
+# Ensure the /tmp directory is writable for the user
+chown -R $CURRENT_USER:$CURRENT_GROUP /tmp
+chmod -R 775 /tmp
 
 # If no command is passed, default to php-fpm
 if [ $# -eq 0 ]; then
