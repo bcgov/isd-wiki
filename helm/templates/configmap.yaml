@@ -20,6 +20,8 @@ data:
     // Add the vendor directory to PHP's open_basedir
     ini_set('open_basedir', ini_get('open_basedir') . PATH_SEPARATOR . '/var/www/html/vendor');
 
+    // Load Composer autoloader
+    require_once "$IP/vendor/autoload.php";
 
     # Database settings
     $wgDBtype = "{{ .Values.mediawiki.database.type }}";
