@@ -55,7 +55,6 @@ spec:
           # The official MediaWiki image has the files in /var/www/html.
           # We copy them from that location into a different, temporary mount point for the volume.
           - "cp -r /var/www/html/. /copy-dest/"
-          # - "cp -r --preserve=mode /var/www/html/. /copy-dest/"
          volumeMounts:
           - name: mediawiki-html
             mountPath: /copy-dest
@@ -81,6 +80,21 @@ spec:
               value: localhost
             - name: PHP_FPM_PORT
               value: "9000"
+          # Readiness and Liveness probes for the NGINX container
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+        # The main MediaWiki PHP-FPM container
         - name: mediawiki
           securityContext:
             {{- toYaml .Values.mediawiki.securityContext | nindent 16 }}
@@ -89,6 +103,9 @@ spec:
           ports:
             - name: fpm
               containerPort: 9000
+              protocol: TCP
+            - name: http
+              containerPort: 80
               protocol: TCP
           command: ["/bin/sh", "-c", "sleep infinity"]
           # # Use custom entrypoint script here. It will now run on the shared volume.
@@ -127,16 +144,20 @@ spec:
             - name: mediawiki-config
               mountPath: /var/www/html/LocalSettings.php
               subPath: LocalSettings.php
-          livenessProbe:
-            httpGet:
-              path: /
-              port: http
-          readinessProbe:
-            httpGet:
-              path: /
-              port: http
           resources:
             {{- toYaml .Values.mediawiki.resources | nindent 16 }}
+          # Readiness and Liveness probes for the PHP-FPM container
+          readinessProbe:
+            tcpSocket:
+              port: 9000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 9000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            
       volumes:
         - name: mediawiki-data
           persistentVolumeClaim:
