@@ -8,7 +8,6 @@ metadata:
     app.kubernetes.io/instance: isd-wiki
 data:
   nginx.conf: |
-    user  nginx;
     worker_processes  auto;
     events {
       worker_connections  1024;

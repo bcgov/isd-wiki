@@ -120,7 +120,7 @@ spec:
             containerPort: 9000
             protocol: TCP
          command: ["sh"]
-         args: ["/var/www/html/docker-entrypoint.sh"]
+         args: ["/docker-entrypoint.sh"]
          env:
             - name: MEDIAWIKI_DB_TYPE
               value: {{ .Values.mediawiki.database.type | quote }}
