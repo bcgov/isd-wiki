@@ -8,11 +8,6 @@ metadata:
     app.kubernetes.io/instance: isd-wiki
 data:
   nginx.conf: |
-    http {
-      include       /etc/nginx/mime.types;
-      default_type  application/octet-stream;
-      sendfile        on;
-      keepalive_timeout  65;
       server {
         listen 80;
         server_name  _;
@@ -33,4 +28,3 @@ data:
           include        fastcgi_params;
         }
       }
-    }
