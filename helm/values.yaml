@@ -75,7 +75,7 @@ mediawiki:
   # For now, let's assume direct configuration.
   # the'll likely map these to environment variables in the deployment.yaml
   database:
-    type: postgresql
+    type: postgres
     host: "patroni-isd-wiki"
     port: 5432
     name: mediawiki
