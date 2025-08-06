@@ -120,13 +120,13 @@ if [ -d "$MEDIAWIKI_SHARED/skins" -a ! -h /var/www/html/skins ]; then
     ln -s "$MEDIAWIKI_SHARED/skins" /var/www/html/skins
 fi
 
-# If a vendor folder exists inside the shared directory, as long as
-# /var/www/html/vendor is not already a symbolic link, then replace it
-if [ -d "$MEDIAWIKI_SHARED/vendor" -a ! -h /var/www/html/vendor ]; then
-    echo >&2 "Found 'vendor' folder in data volume, creating symbolic link."
-    rm -rf /var/www/html/vendor
-    ln -s "$MEDIAWIKI_SHARED/vendor" /var/www/html/vendor
-fi
+# # If a vendor folder exists inside the shared directory, as long as
+# # /var/www/html/vendor is not already a symbolic link, then replace it
+# if [ -d "$MEDIAWIKI_SHARED/vendor" -a ! -h /var/www/html/vendor ]; then
+#     echo >&2 "Found 'vendor' folder in data volume, creating symbolic link."
+#     rm -rf /var/www/html/vendor
+#     ln -s "$MEDIAWIKI_SHARED/vendor" /var/www/html/vendor
+# fi
 
 # Attempt to enable SSL support if explicitly requested
 if [ $MEDIAWIKI_ENABLE_SSL = true ]; then
@@ -199,17 +199,6 @@ if [ -e "LocalSettings.php" -a "$MEDIAWIKI_UPDATE" = 'true' -a ! -f "$MEDIAWIKI_
 	php maintenance/update.php --quick --conf ./LocalSettings.php
     rm $MEDIAWIKI_SHARED/update.lock
 fi
-
-# Ensure wikimedia/equivset is installed
-# if [ ! -d "/var/www/html/vendor/wikimedia/equivset" ]; then
-#   echo "Installing wikimedia/equivset via Composer..."
-#   cd /var/www/html
-#   composer require wikimedia/equivset
-# fi
-
-# Run custom startup tasks
-# chmod 755 /startuptasks.sh
-# /startuptasks.sh
 
 # Ensure images folder exists
 mkdir -p images
