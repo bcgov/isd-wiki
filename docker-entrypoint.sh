@@ -91,7 +91,7 @@ export MEDIAWIKI_DB_TYPE MEDIAWIKI_DB_HOST MEDIAWIKI_DB_USER MEDIAWIKI_DB_PASSWO
 
 cd /var/www/html
 
-: ${MEDIAWIKI_SHARED:=/data}
+: ${MEDIAWIKI_SHARED:=/var/www/data}
 if [ ! -d "$MEDIAWIKI_SHARED" ]; then
     mkdir -p $MEDIAWIKI_SHARED
 fi

@@ -84,7 +84,7 @@ mediawiki:
     rootPassword: ""
 
   # Configuration for LocalSettings.php
-  siteName: "My MediaWiki"
+  siteName: "MediaWiki"
   adminUser: "admin"
   adminPassword: "" # Set this securely
   # Add more MediaWiki-specific settings here, which the can inject into LocalSettings.php
