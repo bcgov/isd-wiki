@@ -85,14 +85,3 @@ data:
         'minor' => 3600 * 24 * 7, // 1 week
         'major' => 3600 * 24 * 7, // 1 week
     ];
-
-    # Add more configuration as needed based on your MediaWiki requirements
-    # For example, extensions:
-    # wfLoadExtension( 'VisualEditor' );
-    # wfLoadExtension( 'SyntaxHighlight_GeSHi' );
-    # mediawiki..
-
-    # The rest of the auto-generated LocalSettings.php content would go here.
-    # It's generally good practice to keep this minimal and manage more complex
-    # configuration via environment variables or a separate configuration file.
-    ```

@@ -232,12 +232,11 @@ CURRENT_GROUP=$(id -g)
 # Ensure the cache directory is writable by the current user
 chmod -R 775 /var/www/html/cache
 
-# Ensure the vendor directory is readable and executable for the container's user.
-# Find all directories and set read/execute permissions.
-find /var/www/html/vendor -type d -exec chmod a+rx {} \;
+# Change to the application directory
+cd /var/www/html/
 
-# Find all files and set read permissions.
-find /var/www/html/vendor -type f -exec chmod a+r {} \;
+# Install dependencies. This will ensure all libraries are present and have correct permissions.
+composer install --no-dev --no-interaction
 
 # If no command is passed, default to php-fpm
 if [ $# -eq 0 ]; then
