@@ -222,10 +222,6 @@ CURRENT_GROUP=$(id -g)
 chown -R $CURRENT_USER:$CURRENT_GROUP /var/www/html/cache
 chmod -R 775 /var/www/html/cache
 
-# Ensure the /tmp directory is writable for the user
-chown -R $CURRENT_USER:$CURRENT_GROUP /tmp
-chmod -R 775 /tmp
-
 # If no command is passed, default to php-fpm
 if [ $# -eq 0 ]; then
   set -- php-fpm
