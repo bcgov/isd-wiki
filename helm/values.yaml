@@ -25,7 +25,24 @@ global:
 # Configuration for the NGINX sidecar container
 nginx:
   image:
+    repository: ghcr.io/bcgov/isd-wiki-proxy
     pullPolicy: IfNotPresent
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: "latest"
+
+  service:
+    type: ClusterIP 
+    ports:
+      http: 80
+      https: 443
+  
+  resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
 
 # Configuration for the MediaWiki application
 mediawiki:
