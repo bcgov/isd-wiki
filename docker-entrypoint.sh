@@ -11,11 +11,7 @@ set -e
 : ${MEDIAWIKI_UPDATE:=false}
 
 
-# Copy MediaWiki core files to /var/www/html
-# if [ ! -f /var/www/html/index.php ]; then
-#   echo "Initializing /var/www/html with MediaWiki core files..."
-#   cp -a /usr/src/mediawiki/. /var/www/html/
-# fi
+
 
 if [ -z "$MEDIAWIKI_DB_HOST" ]; then
 	if [ -n "$MYSQL_PORT_3306_TCP_ADDR" ]; then
@@ -95,27 +91,6 @@ while [ `nc -w 1 $MEDIAWIKI_DB_HOST $MEDIAWIKI_DB_PORT < /dev/null > /dev/null; 
 done
 
 export MEDIAWIKI_DB_TYPE MEDIAWIKI_DB_HOST MEDIAWIKI_DB_USER MEDIAWIKI_DB_PASSWORD MEDIAWIKI_DB_NAME
-
-TERM=dumb php -- <<'EOPHP'
-<?php
-// database might not exist, so let's try creating it (just to be safe)
-
-if ($_ENV['MEDIAWIKI_DB_TYPE'] == 'mysql') {
-
-	$mysql = new mysqli($_ENV['MEDIAWIKI_DB_HOST'], $_ENV['MEDIAWIKI_DB_USER'], $_ENV['MEDIAWIKI_DB_PASSWORD'], '', (int) $_ENV['MEDIAWIKI_DB_PORT']);
-
-	if ($mysql->connect_error) {
-		file_put_contents('php://stderr', 'MySQL Connection Error: (' . $mysql->connect_errno . ') ' . $mysql->connect_error . "\n");
-		exit(1);
-	}
-
-	if (!$mysql->query('CREATE DATABASE IF NOT EXISTS `' . $mysql->real_escape_string($_ENV['MEDIAWIKI_DB_NAME']) . '`')) {
-		file_put_contents('php://stderr', 'MySQL "CREATE DATABASE" Error: ' . $mysql->error . "\n");
-	}
-
-	$mysql->close();
-}
-EOPHP
 
 cd /var/www/html
 

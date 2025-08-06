@@ -54,7 +54,8 @@ spec:
          args:
           # The official MediaWiki image has the files in /var/www/html.
           # We copy them from that location into a different, temporary mount point for the volume.
-          - "cp -av /var/www/html/. /copy-dest/"
+          - "cp -a --no-preserve=ownership,mode /var/www/html/. /copy-dest/""
+          # - "cp -r --preserve=mode /var/www/html/. /copy-dest/"
          volumeMounts:
           - name: mediawiki-html
             mountPath: /copy-dest
