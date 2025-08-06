@@ -2,6 +2,17 @@
 
 set -e
 
+# --- DEBUGGING COMMANDS START HERE ---
+# echo "--- DEBUGGING INFO ---"
+# echo "Current user and group:"
+# id
+# echo "TMPDIR environment variable is: $TMPDIR"
+# echo "Permissions for /tmp:"
+# ls -ld /tmp
+# echo "Permissions for /var/www/html/cache:"
+# ls -ld /var/www/html/cache
+# echo "--- END DEBUGGING INFO ---"
+
 : ${MEDIAWIKI_SITE_NAME:=MediaWiki}
 : ${MEDIAWIKI_SITE_LANG:=en}
 : ${MEDIAWIKI_ADMIN_USER:=admin}
@@ -220,6 +231,9 @@ CURRENT_GROUP=$(id -g)
 
 # Ensure the cache directory is writable by the current user
 chmod -R 775 /var/www/html/cache
+
+# Ensure the vendor directory has the correct group ownership
+chgrp -R $CURRENT_GROUP /var/www/html/vendor
 
 # If no command is passed, default to php-fpm
 if [ $# -eq 0 ]; then
