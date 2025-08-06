@@ -2,17 +2,6 @@
 
 set -e
 
-# --- DEBUGGING COMMANDS START HERE ---
-# echo "--- DEBUGGING INFO ---"
-# echo "Current user and group:"
-# id
-# echo "TMPDIR environment variable is: $TMPDIR"
-# echo "Permissions for /tmp:"
-# ls -ld /tmp
-# echo "Permissions for /var/www/html/cache:"
-# ls -ld /var/www/html/cache
-# echo "--- END DEBUGGING INFO ---"
-
 : ${MEDIAWIKI_SITE_NAME:=MediaWiki}
 : ${MEDIAWIKI_SITE_LANG:=en}
 : ${MEDIAWIKI_ADMIN_USER:=admin}
@@ -212,11 +201,11 @@ if [ -e "LocalSettings.php" -a "$MEDIAWIKI_UPDATE" = 'true' -a ! -f "$MEDIAWIKI_
 fi
 
 # Ensure wikimedia/equivset is installed
-if [ ! -d "/var/www/html/vendor/wikimedia/equivset" ]; then
-  echo "Installing wikimedia/equivset via Composer..."
-  cd /var/www/html
-  composer require wikimedia/equivset
-fi
+# if [ ! -d "/var/www/html/vendor/wikimedia/equivset" ]; then
+#   echo "Installing wikimedia/equivset via Composer..."
+#   cd /var/www/html
+#   composer require wikimedia/equivset
+# fi
 
 # Run custom startup tasks
 # chmod 755 /startuptasks.sh
