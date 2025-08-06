@@ -27,4 +27,4 @@ data:
           include        fastcgi_params;
         }
       }
-    }
+    
