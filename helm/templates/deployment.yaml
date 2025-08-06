@@ -146,6 +146,8 @@ spec:
             # Add more environment variables for MediaWiki configuration as needed
             # (e.g., for upload directory, extensions, etc.)
          volumeMounts:
+            - name: tmp-dir
+              mountPath: /tmp
             # Mount the shared volume for both PHP and NGINX
             - name: mediawiki-html
               mountPath: /var/www/html
@@ -169,6 +171,8 @@ spec:
 
       volumes:
         - name: empty-dir
+          emptyDir: {}
+        - name: tmp-dir
           emptyDir: {}
         - name: nginx-run
           emptyDir: {}
