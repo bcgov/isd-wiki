@@ -24,6 +24,9 @@ data:
     $wgDBuser = "{{ .Values.mediawiki.database.user }}";
     $wgDBpassword = file_get_contents("/var/run/secrets/{{ include "isd-wiki.fullname" . }}-db-credentials/password"); # Read from mounted secret
 
+    # Set a dedicated, writable directory for temporary files
+    $wgTmpDirectory = "/var/www/html/tmp";
+
     # Postgres specific settings
     # $wgDBport = 5432;
     # $wgDBssl = true;

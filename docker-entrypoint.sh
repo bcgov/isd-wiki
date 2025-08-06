@@ -219,7 +219,6 @@ CURRENT_USER=$(id -u)
 CURRENT_GROUP=$(id -g)
 
 # Ensure the cache directory is writable by the current user
-# chown -R $CURRENT_USER:$CURRENT_GROUP /var/www/html/cache
 chmod -R 775 /var/www/html/cache
 
 # If no command is passed, default to php-fpm
