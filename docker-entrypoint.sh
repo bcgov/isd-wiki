@@ -214,10 +214,13 @@ fi
 # Ensure images folder exists
 mkdir -p images
 
-# Fix file ownership and permissions
-#chown -R www-data: . # takes long time to exec in k8s, plus it's not good to set everything owned by web user
-# chown -R www-data: cache
-chmod 755 images
+# Fix file ownership and permissions for the cache directory
+# Get the current user and group
+CURRENT_USER=$(id -u)
+CURRENT_GROUP=$(id -g)
+# Correct the permissions on the cache directory so the user can write to it
+chown -R $CURRENT_USER:$CURRENT_GROUP cache
+chmod -R 775 cache
 
 # If no command is passed, default to php-fpm
 if [ $# -eq 0 ]; then

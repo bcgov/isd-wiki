@@ -29,12 +29,6 @@ nginx:
     pullPolicy: IfNotPresent
     # Overrides the image tag whose default is the chart appVersion.
     tag: "latest"
-
-  service:
-    type: ClusterIP 
-    ports:
-      http: 80
-      https: 443
   
   resources:
     requests:

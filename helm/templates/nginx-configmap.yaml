@@ -9,14 +9,13 @@ metadata:
 data:
   nginx.conf: |
       server {
-        listen 80;
+        listen 8080;
         server_name  _;
         root   /var/www/html;
         index  index.php;
         location / {
           try_files $uri $uri/ =404;
         }
-        # New location block for static assets
         location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
             expires max;
             log_not_found off;
@@ -28,3 +27,4 @@ data:
           include        fastcgi_params;
         }
       }
+    }
