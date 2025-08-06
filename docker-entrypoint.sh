@@ -232,8 +232,12 @@ CURRENT_GROUP=$(id -g)
 # Ensure the cache directory is writable by the current user
 chmod -R 775 /var/www/html/cache
 
-# Ensure the vendor directory has the correct group ownership
-chgrp -R $CURRENT_GROUP /var/www/html/vendor
+# Ensure the vendor directory is readable and executable for the container's user.
+# Find all directories and set read/execute permissions.
+find /var/www/html/vendor -type d -exec chmod a+rx {} \;
+
+# Find all files and set read permissions.
+find /var/www/html/vendor -type f -exec chmod a+r {} \;
 
 # If no command is passed, default to php-fpm
 if [ $# -eq 0 ]; then
