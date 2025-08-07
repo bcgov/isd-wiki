@@ -18,7 +18,7 @@ data:
         ini_set( 'display_startup_errors', 1 );
 
     // Set a correct open_basedir to allow access to all necessary files.
-    ini_set('open_basedir', '/var/www/html/:/var/www/html/vendor/:/var/www/html/images');
+    ini_set('open_basedir', '/var/www/html/:/var/www/html/vendor/:/var/www/html/images:/tmp');
 
     // Load Composer autoloader
     require_once "$IP/vendor/autoload.php";
@@ -49,8 +49,8 @@ data:
 
     # This is a randomly generated secret key. It is used by MediaWiki to
     # encrypt passwords and for other security-related operations.
-    # You should not share this key with anyone.
-    $wgSecretKey = "{{ .Values.mediawiki.secretKey | default (randAlphaNum 32) }}"; # Generate a random key for new installations
+    # Generate a random key for new installations
+    $wgSecretKey = "{{ .Values.mediawiki.secretKey | default (randAlphaNum 32) }}"; 
 
     # Site language code, see https://www.mediawiki.org/wiki/Manual:wiki_language
     $wgLanguageCode = "en";
@@ -83,11 +83,11 @@ data:
     $wgMainCacheType = CACHE_DB;
     $wgParserCacheType = CACHE_DB;
     $wgMessageCacheType = CACHE_DB;
-    # $wgMemCachedServers = [ '{{ include "isd-wiki.fullname" . }}-memcached:11211' ]; # If you use memcached as a subchart
+    # $wgMemCachedServers = [ '{{ include "isd-wiki.fullname" . }}-memcached:11211' ];
 
     # Debugging settings (useful for development)
-    # $wgShowExceptionDetails = true;
-    # $wgDebugToolbar = true;
+    $wgShowExceptionDetails = true;
+    $wgDebugToolbar = true;
 
     # ResourceLoader
     $wgResourceLoaderMaxage = [
