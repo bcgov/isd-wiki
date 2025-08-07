@@ -23,6 +23,9 @@ data:
     // Load Composer autoloader
     require_once "$IP/vendor/autoload.php";
 
+    # Server configuration
+    $wgServer = "{{ .Values.mediawiki.serverName }}";
+
     # Database settings
     $wgDBtype = "{{ .Values.mediawiki.database.type }}";
     $wgDBserver = "{{ .Values.mediawiki.database.host }}";
