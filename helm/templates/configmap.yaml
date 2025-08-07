@@ -10,16 +10,15 @@ data:
     #
     # See docs/Configuration.md for configuration options and examples
     # of how to modify this file.
+    # For more information on configuring MediaWiki, see:
+    # https://www.mediawiki.org/wiki/Manual:Configuration_settings
 
     error_reporting( -1 );
         ini_set( 'display_errors', 1 );
         ini_set( 'display_startup_errors', 1 );
 
-    # For more information on configuring MediaWiki, see:
-    # https://www.mediawiki.org/wiki/Manual:Configuration_settings
-
-    // Add the vendor directory to PHP's open_basedir
-    ini_set('open_basedir', ini_get('open_basedir') . PATH_SEPARATOR . '/var/www/html/vendor');
+    // Set a correct open_basedir to allow access to all necessary files.
+    ini_set('open_basedir', '/var/www/html/:/var/www/html/vendor/:/var/www/html/images');
 
     // Load Composer autoloader
     require_once "$IP/vendor/autoload.php";
