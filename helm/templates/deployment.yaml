@@ -126,6 +126,8 @@ spec:
               value: {{ .Values.mediawiki.database.type | quote }}
             - name: MEDIAWIKI_DB_HOST
               value: {{ .Values.mediawiki.database.host | default (printf "%s-mysql" (include "isd-wiki.fullname" .)) | quote }}
+            - name: MEDIAWIKI_DB_PORT
+              value: {{ .Values.mediawiki.database.port | default 5432 | quote }}
             - name: MEDIAWIKI_DB_NAME
               valueFrom:
                 secretKeyRef:
