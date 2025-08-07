@@ -25,24 +25,21 @@ data:
 
     # Database settings
     $wgDBtype = "{{ .Values.mediawiki.database.type }}";
-    $wgDBserver = "{{ .Values.mediawiki.database.host | default (printf "%s-mysql" (include "isd-wiki.fullname" .)) }}";
+    $wgDBserver = "{{ .Values.mediawiki.database.host }}";
     $wgDBname = "{{ .Values.mediawiki.database.name }}";
     $wgDBuser = "{{ .Values.mediawiki.database.user }}";
-    # $wgDBpassword = file_get_contents("/var/run/secrets/{{ include "isd-wiki.fullname" . }}-db-credentials/password"); # Read from mounted secret
 
+    # Read db passwordfrom mounted secret
+    # $wgDBpassword = file_get_contents("/var/run/secrets/{{ include "isd-wiki.fullname" . }}-db-credentials/password"); 
 
+    # Read db password from environment
     $wgDBpassword = getenv('MEDIAWIKI_DB_PASSWORD');
-
 
     # Set a dedicated, writable directory for temporary files
     # $wgTmpDirectory = "/var/www/html/tmp";
 
     # Postgres specific settings
-    # $wgDBport = 5432;
-    # $wgDBssl = true;
-
-    # MySQL specific settings
-    $wgDBport = {{ .Values.mediawiki.database.port | default 3306 }};
+    $wgDBport = 5432;
 
     # If using a prefix for database tables
     # $wgDBprefix = "";
@@ -80,10 +77,10 @@ data:
     $wgImageMagickConvertCommand = "/usr/bin/convert"; # Ensure imagemagick is installed in the container
 
     # Cache settings
-    $wgMainCacheType = CACHE_MEMCACHED; # Or CACHE_ANYTHING
-    $wgParserCacheType = CACHE_MEMCACHED;
-    $wgMessageCacheType = CACHE_MEMCACHED;
-    $wgMemCachedServers = [ '{{ include "isd-wiki.fullname" . }}-memcached:11211' ]; # If you use memcached as a subchart
+    $wgMainCacheType = CACHE_DB;
+    $wgParserCacheType = CACHE_DB;
+    $wgMessageCacheType = CACHE_DB;
+    # $wgMemCachedServers = [ '{{ include "isd-wiki.fullname" . }}-memcached:11211' ]; # If you use memcached as a subchart
 
     # Debugging settings (useful for development)
     # $wgShowExceptionDetails = true;
