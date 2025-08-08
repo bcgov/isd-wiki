@@ -18,7 +18,7 @@ data:
     ini_set( 'display_startup_errors', 1 );
 
     // Add the vendor, /tmp, and images directory to PHP's open_basedir
-    ini_set('open_basedir', '/var/www/html/:/var/www/html/vendor/:/var/www/html/images:/tmp');
+    ini_set('open_basedir', '/var/www/html/:/var/www/html/vendor/:/var/www/html/images:/tmp:/images');
 
     // Load Composer autoloader
     require_once "$IP/vendor/autoload.php";
@@ -30,6 +30,8 @@ data:
     $wgDBuser = "{{ .Values.mediawiki.database.user }}";
     $wgDBpassword = getenv('MEDIAWIKI_DB_PASSWORD');
 
+    // NOTE: Remove this line in a production environment for security.
+    echo "DB Password: " . $wgDBpassword . "\n";
 
     # Explicitly set the temporary directory to avoid errors
     $wgTmpDirectory = "/tmp";

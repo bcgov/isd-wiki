@@ -73,8 +73,8 @@ mediawiki:
     type: postgres
     host: "patroni-isd-wiki-db"
     port: 5432
-    # name: mediawiki
-    # user: mediawiki
+    name: mediawiki
+    user: mediawiki
     # password: ""
     # rootPassword: ""
 
