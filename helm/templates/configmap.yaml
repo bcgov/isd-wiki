@@ -30,8 +30,16 @@ data:
     $wgDBuser = "{{ .Values.mediawiki.database.user }}";
     $wgDBpassword = getenv('MEDIAWIKI_DB_PASSWORD');
 
-    // NOTE: Remove this line in a production environment for security.
-    echo "DB Password: " . $wgDBpassword . "\n";
+    // DEBUG: Add a raw PHP connection check for detailed errors
+    $conn_string = "host=$wgDBserver port=$wgDBport dbname=$wgDBname user=$wgDBuser password=$wgDBpassword";
+    $conn = pg_connect($conn_string);
+    if (!$conn) {
+        echo "ERROR: Failed to connect to PostgreSQL: " . pg_last_error() . "\n";
+        exit(1);
+    } else {
+        echo "SUCCESS: Raw PHP connection to PostgreSQL successful.\n";
+        pg_close($conn);
+    }
 
     # Explicitly set the temporary directory to avoid errors
     $wgTmpDirectory = "/tmp";
