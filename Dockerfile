@@ -16,7 +16,6 @@ RUN set -eux; \
     unzip \
     jq \
     netcat-openbsd \
-    php-pgsql \
     ;
 
 # --- Install additional PHP extensions ---

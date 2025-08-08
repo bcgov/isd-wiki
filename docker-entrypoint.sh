@@ -27,10 +27,18 @@ echo "Database is up."
 
 cd /var/www/html
 
-# Run MediaWiki database update script on container startup.
-# This ensures the database schema is up-to-date.
-echo "Running MediaWiki update script..."
-php maintenance/update.php --quick
+# Run MediaWiki database install/update script on container startup.
+
+# Check if the database is empty.
+if ! psql -h "$WG_DB_SERVER" -U "$WG_DB_USER" -d "$WG_DB_NAME" -c '\dt' | grep -q "public"; then
+    echo "Database is empty. Running install.php to create the schema."
+    # Run the installation script.
+    php /var/www/html/maintenance/install.php --dbname "$WG_DB_NAME" --dbuser "$WG_DB_USER" --dbpass "$WG_DB_PASSWORD" ...
+else
+    echo "Database already exists. Running update.php to migrate the schema."
+    # Run the update script.
+    php /var/www/html/maintenance/update.php --conf /var/www/html/LocalSettings.php
+fi
 
 # Ensure images folder exists and has correct permissions.
 # This is a good practice for file uploads.
