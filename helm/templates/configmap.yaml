@@ -14,32 +14,25 @@ data:
     # https://www.mediawiki.org/wiki/Manual:Configuration_settings
 
     error_reporting( -1 );
-        ini_set( 'display_errors', 1 );
-        ini_set( 'display_startup_errors', 1 );
+    ini_set( 'display_errors', 1 );
+    ini_set( 'display_startup_errors', 1 );
 
-    // Set a correct open_basedir to allow access to all necessary files.
+    // Add the vendor, /tmp, and images directory to PHP's open_basedir
     ini_set('open_basedir', '/var/www/html/:/var/www/html/vendor/:/var/www/html/images:/tmp');
 
     // Load Composer autoloader
     require_once "$IP/vendor/autoload.php";
 
-    # Server configuration
-    $wgServer = "{{ .Values.mediawiki.serverName }}";
-
     # Database settings
     $wgDBtype = "{{ .Values.mediawiki.database.type }}";
-    $wgDBserver = "{{ .Values.mediawiki.database.host }}";
+    $wgDBserver = "patroni-isd-wiki-db";
     $wgDBname = "{{ .Values.mediawiki.database.name }}";
     $wgDBuser = "{{ .Values.mediawiki.database.user }}";
-
-    # Read db passwordfrom mounted secret
-    # $wgDBpassword = file_get_contents("/var/run/secrets/{{ include "isd-wiki.fullname" . }}-db-credentials/password"); 
-
-    # Read db password from environment
     $wgDBpassword = getenv('MEDIAWIKI_DB_PASSWORD');
 
-    # Set a dedicated, writable directory for temporary files
-    # $wgTmpDirectory = "/var/www/html/tmp";
+
+    # Explicitly set the temporary directory to avoid errors
+    $wgTmpDirectory = "/tmp";
 
     # Postgres specific settings
     $wgDBport = 5432;
@@ -49,14 +42,17 @@ data:
 
     # This is a randomly generated secret key. It is used by MediaWiki to
     # encrypt passwords and for other security-related operations.
-    # Generate a random key for new installations
-    $wgSecretKey = "{{ .Values.mediawiki.secretKey | default (randAlphaNum 32) }}"; 
+    # You should not share this key with anyone.
+    $wgSecretKey = "{{ .Values.mediawiki.secretKey | default (randAlphaNum 32) }}"; # Generate a random key for new installations
 
     # Site language code, see https://www.mediawiki.org/wiki/Manual:wiki_language
     $wgLanguageCode = "en";
 
     # Site name
     $wgSitename = "{{ .Values.mediawiki.siteName }}";
+
+    # This is the required setting for the domain, e.g. "https://wiki.example.com"
+    $wgServer = "{{ .Values.mediawiki.serverName }}";
 
     # Set this to true to enable pretty URLs (e.g., /wiki/Page_title)
     # Requires web server configuration.
@@ -83,11 +79,11 @@ data:
     $wgMainCacheType = CACHE_DB;
     $wgParserCacheType = CACHE_DB;
     $wgMessageCacheType = CACHE_DB;
-    # $wgMemCachedServers = [ '{{ include "isd-wiki.fullname" . }}-memcached:11211' ];
+    # $wgMemCachedServers = [ '{{ include "isd-wiki.fullname" . }}-memcached:11211' ]; # If you use memcached as a subchart
 
     # Debugging settings (useful for development)
     $wgShowExceptionDetails = true;
-    $wgDebugToolbar = true;
+    # $wgDebugToolbar = true;
 
     # ResourceLoader
     $wgResourceLoaderMaxage = [

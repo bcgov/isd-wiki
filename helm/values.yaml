@@ -71,12 +71,12 @@ mediawiki:
   # the'll likely map these to environment variables in the deployment.yaml
   database:
     type: postgres
-    host: "patroni-isd-wiki"
+    host: "patroni-isd-wiki-db"
     port: 5432
-    name: mediawiki
-    user: mediawiki
-    password: ""
-    rootPassword: ""
+    # name: mediawiki
+    # user: mediawiki
+    # password: ""
+    # rootPassword: ""
 
   # Configuration for LocalSettings.php
   siteName: "MediaWiki"
