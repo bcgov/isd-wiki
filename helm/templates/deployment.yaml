@@ -153,12 +153,11 @@ spec:
             - name: MEDIAWIKI_ADMIN_PASS
               valueFrom:
                 secretKeyRef:
-                  name: { include "isd-wiki.fullname" . }}-credentials
+                  name: {{ include "isd-wiki.fullname" . }}-credentials
                   key: admin-password
          volumeMounts:
             - name: tmp-dir
               mountPath: /tmp
-            # Mount the shared volume for both PHP and NGINX
             - name: mediawiki-html
               mountPath: /var/www/html
             - name: mediawiki-data
