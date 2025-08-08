@@ -32,8 +32,16 @@ cd /var/www/html
 # Check if the database is empty.
 if ! psql -h "$WG_DB_SERVER" -U "$WG_DB_USER" -d "$WG_DB_NAME" -c '\dt' | grep -q "public"; then
     echo "Database is empty. Running install.php to create the schema."
-    # Run the installation script.
-    php /var/www/html/maintenance/install.php --dbname "$WG_DB_NAME" --dbuser "$WG_DB_USER" --dbpass "$WG_DB_PASSWORD" ...
+    # Run the installation script to set up a new wiki from scratch.
+    php /var/www/html/maintenance/install.php \
+        --dbname "$WG_DB_NAME" \
+        --dbuser "$WG_DB_USER" \
+        --dbpass "$WG_DB_PASSWORD" \
+        --server "$WG_SERVER" \
+        --lang "$WG_LANGUAGE_CODE" \
+        --pass "$MEDIAWIKI_ADMIN_PASS" \
+        "$WG_SITE_NAME" \
+        "$MEDIAWIKI_ADMIN_USER"
 else
     echo "Database already exists. Running update.php to migrate the schema."
     # Run the update script.

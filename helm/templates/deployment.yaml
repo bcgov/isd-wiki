@@ -131,22 +131,30 @@ spec:
             - name: MEDIAWIKI_DB_NAME
               valueFrom:
                 secretKeyRef:
-                  name: patroni-{{ include "isd-wiki.fullname" . }}-db
+                  name: {{ .Values.mediawiki.database.secretName | quote }}
                   key: app-db-name
             - name: MEDIAWIKI_DB_USER
               valueFrom:
                 secretKeyRef:
-                  name: patroni-{{ include "isd-wiki.fullname" . }}-db
+                  name: {{ .Values.mediawiki.database.secretName | quote }}
                   key: app-db-username
             - name: MEDIAWIKI_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: patroni-{{ include "isd-wiki.fullname" . }}-db
+                  name: {{ .Values.mediawiki.database.secretName | quote }}
                   key: app-db-password
             - name: MEDIAWIKI_SITE_NAME
               value: {{ .Values.mediawiki.siteName | quote }}
-            # Add more environment variables for MediaWiki configuration as needed
-            # (e.g., for upload directory, extensions, etc.)
+            - name: MEDIAWIKI_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "isd-wiki.fullname" . }}-credentials
+                  key: admin-user
+            - name: MEDIAWIKI_ADMIN_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: { include "isd-wiki.fullname" . }}-credentials
+                  key: admin-password
          volumeMounts:
             - name: tmp-dir
               mountPath: /tmp
