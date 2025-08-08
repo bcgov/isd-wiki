@@ -38,10 +38,12 @@ RUN set -eux; \
     imagemagick-dev \
     hiredis-dev \
     libmemcached-dev \
+    postgresql-dev \
     ; \
     \
     docker-php-ext-install -j "$(nproc)" \
     ldap \
+    pgsql \
     pcntl \
     zip \
     # imagick is installed via pecl, not docker-php-ext-install for ImageMagick
