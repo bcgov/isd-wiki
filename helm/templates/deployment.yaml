@@ -56,7 +56,7 @@ spec:
           # We copy them from that location into a different, temporary mount point for the volume.
           - "cp -r /var/www/html/. /copy-dest/"
          volumeMounts:
-          - name: mediawiki-html
+          - name: mediawiki-html-volume
             mountPath: /copy-dest
 
       containers:
@@ -88,9 +88,8 @@ spec:
           - name: nginx-cache
             mountPath: /var/cache/nginx
           # The NGINX server will read the PHP files from this shared volume
-          - name: mediawiki-html
+          - name: mediawiki-html-volume
             mountPath: /var/www/html
-            readOnly: true
          env:
             - name: PHP_FPM_HOST
               value: localhost
@@ -158,13 +157,10 @@ spec:
          volumeMounts:
             - name: tmp-dir
               mountPath: /tmp
-            - name: mediawiki-html
+            - name: mediawiki-html-volume
               mountPath: /var/www/html
             - name: mediawiki-data
               mountPath: /var/www/data
-            - name: mediawiki-config
-              mountPath: /var/www/html/LocalSettings.php
-              subPath: LocalSettings.php
          resources:
             {{- toYaml .Values.mediawiki.resources | nindent 16 }}
          readinessProbe:
@@ -203,12 +199,9 @@ spec:
         - name: mediawiki-data
           persistentVolumeClaim:
             claimName: {{ include "isd-wiki.fullname" . }}-data
-        - name: mediawiki-html
+        - name: mediawiki-html-volume
           persistentVolumeClaim:
             claimName: {{ include "isd-wiki.fullname" . }}-html
-        - name: mediawiki-config
-          configMap:
-            name: {{ include "isd-wiki.fullname" . }}-config
       {{- with .Values.mediawiki.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

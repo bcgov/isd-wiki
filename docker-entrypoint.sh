@@ -27,26 +27,34 @@ echo "Database is up."
 
 cd /var/www/html
 
-# Run MediaWiki database install/update script on container startup.
 
-# Check if the database is empty.
-if ! psql -h "$WG_DB_SERVER" -U "$WG_DB_USER" -d "$WG_DB_NAME" -c '\dt' | grep -q "public"; then
-    echo "Database is empty. Running install.php to create the schema."
-    # Run the installation script to set up a new wiki from scratch.
-    php /var/www/html/maintenance/install.php \
-        --dbname "$WG_DB_NAME" \
-        --dbuser "$WG_DB_USER" \
-        --dbpass "$WG_DB_PASSWORD" \
-        --server "$WG_SERVER" \
-        --lang "$WG_LANGUAGE_CODE" \
-        --pass "$MEDIAWIKI_ADMIN_PASS" \
-        "$WG_SITE_NAME" \
-        "$MEDIAWIKI_ADMIN_USER"
-else
-    echo "Database already exists. Running update.php to migrate the schema."
-    # Run the update script.
-    php /var/www/html/maintenance/update.php --conf /var/www/html/LocalSettings.php
-fi
+LOCALSETTINGS_FILE="/var/www/html/LocalSettings.php"
+
+if [ ! -f "$LOCALSETTINGS_FILE" ]; then
+  echo "LocalSettings.php not found. This is a fresh install."
+  
+  # The 'psql' command is now available due to the Dockerfile change
+  if ! psql -h "$MEDIAWIKI_DB_HOST" -U "$MEDIAWIKI_DB_USER" -d "$MEDIAWIKI_DB_NAME" -c '\dt' | grep -q "public"; then
+    echo "Database is empty. Running install.php to create the schema and initial config."
+
+    php maintenance/install.php \
+      --dbname "$MEDIAWIKI_DB_NAME" \
+      --dbuser "$MEDIAWIKI_DB_USER" \
+      --dbpass "$MEDIAWIKI_DB_PASSWORD" \
+      --server "$MEDIAWIKI_SITE_SERVER" \
+      --lang "$MEDIAWIKI_SITE_LANG" \
+      --pass "$MEDIAWIKI_ADMIN_PASS" \
+      "$MEDIAWIKI_SITE_NAME" "$MEDIAWIKI_ADMIN_USER"
+    echo "Installation complete. LocalSettings.php and database schema created."
+  else
+    echo "Database is not empty but LocalSettings.php is missing. This is an invalid state."
+    exit 1
+  fi
+ else
+    echo "Found LocalSettings.php in persistent volume. Running update.php to migrate the schema."
+    php maintenance/update.php
+  fi
+ fi
 
 # Ensure images folder exists and has correct permissions.
 # This is a good practice for file uploads.
@@ -56,8 +64,12 @@ if [ ! -d "images" ]; then
 fi
 chown -R www-data:www-data /var/www/html/cache
 
-# If no command is passed, default to php-fpm.
-if [ "$1" = 'php-fpm' ]; then
+if [ "$#" -eq 0 ]; then
+    # This is for when the entrypoint is used without a command.
+    # For your deployment, the CMD should be set to 'php-fpm'.
+    exec php-fpm
+else
+    # This allows the entrypoint to be used to run other commands if needed.
     exec "$@"
 fi
 
