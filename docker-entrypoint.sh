@@ -94,8 +94,8 @@ $wgUseImageMagick = true;
 $wgImageMagickConvertCommand = "/usr/bin/convert";
 $wgSVGFileRenderer = 'rsvg';
 $wgSVGFileRendererPath = '/usr/bin/rsvg-convert';
-$wgServerName = getenv('MEDIAWIKI_SERVER_NAME');
-$wgServer = getenv('MEDIAWIKI_SERVER_URL');
+# $wgServerName = getenv('MEDIAWIKI_SERVER_NAME');
+# $wgServer = getenv('MEDIAWIKI_SITE_SERVER');
 
 # -----------------------------------------------------------------------
 # END OF CUSTOM SETTINGS
