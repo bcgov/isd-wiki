@@ -81,16 +81,6 @@ WORKDIR /var/www/html
 # The base image already includes Composer.
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
-# Install VisualEditor
-# See: https://www.mediawiki.org/wiki/Extension:VisualEditor
-RUN cd /var/www/html/extensions/
-RUN set -eux; \
-    git clone --recurse-submodules https://gerrit.wikimedia.org/r/mediawiki/extensions/VisualEditor; \
-    cd VisualEditor; \
-    rm -rf .git; \
-    chown -R www-data:www-data /var/www/html/extensions/VisualEditor;
-
-
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php && \
     mv composer.phar /usr/local/bin/composer

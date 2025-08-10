@@ -80,7 +80,7 @@ $wgVisualEditorEnableWikitext = true;
 $wgHiddenPrefs[] = 'visualeditor-enable-mw-nitro';
 
 # Load SyntaxHighlight_GeSHi
-wfLoadExtension( 'SyntaxHighlight_GeSHi' );
+# wfLoadExtension( 'SyntaxHighlight_GeSHi' );
 
 # --- Debugging and Environment ---
 error_reporting(E_ALL);
