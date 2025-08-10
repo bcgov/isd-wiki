@@ -61,46 +61,46 @@ if [ ! -f "$LOCALSETTINGS_FILE" ]; then
         
         echo "Installation complete. LocalSettings.php and database schema created."
 
-        # === APPEND CUSTOM SETTINGS ===
-        # Add your custom settings from the original LocalSettings.php to the newly generated one.
-		cat << EOF >> LocalSettings.php
+#         # === APPEND CUSTOM SETTINGS ===
+#         # Add your custom settings from the original LocalSettings.php to the newly generated one.
+# 		cat << EOF >> LocalSettings.php
 
-# -----------------------------------------------------------------------
-# START OF CUSTOM SETTINGS
-# These settings were appended to the auto-generated file.
-# -----------------------------------------------------------------------
+# # -----------------------------------------------------------------------
+# # START OF CUSTOM SETTINGS
+# # These settings were appended to the auto-generated file.
+# # -----------------------------------------------------------------------
 
-# --- Custom Extensions ---
-# Load VisualEditor and its dependencies
-wfLoadExtension( 'VisualEditor' );
-$wgDefaultUserOptions['visualeditor-enable'] = 1;
-$wgVisualEditorEnableWikitext = true;
-$wgHiddenPrefs[] = 'visualeditor-enable-mw-nitro';
+# # --- Custom Extensions ---
+# # Load VisualEditor and its dependencies
+# wfLoadExtension( 'VisualEditor' );
+# $wgDefaultUserOptions['visualeditor-enable'] = 1;
+# $wgVisualEditorEnableWikitext = true;
+# $wgHiddenPrefs[] = 'visualeditor-enable-mw-nitro';
 
-# Load SyntaxHighlight_GeSHi
-# wfLoadExtension( 'SyntaxHighlight_GeSHi' );
+# # Load SyntaxHighlight_GeSHi
+# # wfLoadExtension( 'SyntaxHighlight_GeSHi' );
 
-# --- Debugging and Environment ---
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-$wgShowExceptionDetails = true;
-$wgDevelopmentWarnings = false;
-$wgShowDBErrorBacktrace = true;
+# # --- Debugging and Environment ---
+# error_reporting(E_ALL);
+# ini_set('display_errors', 1);
+# $wgShowExceptionDetails = true;
+# $wgDevelopmentWarnings = false;
+# $wgShowDBErrorBacktrace = true;
 
-# --- Environment and Paths ---
-$wgTmpDirectory = "/tmp";
-$wgUseImageMagick = true;
-$wgImageMagickConvertCommand = "/usr/bin/convert";
-$wgSVGFileRenderer = 'rsvg';
-$wgSVGFileRendererPath = '/usr/bin/rsvg-convert';
+# # --- Environment and Paths ---
+# $wgTmpDirectory = "/tmp";
+# $wgUseImageMagick = true;
+# $wgImageMagickConvertCommand = "/usr/bin/convert";
+# $wgSVGFileRenderer = 'rsvg';
+# $wgSVGFileRendererPath = '/usr/bin/rsvg-convert';
 
-# -----------------------------------------------------------------------
-# END OF CUSTOM SETTINGS
-# -----------------------------------------------------------------------
-EOF
-        echo "Appended custom settings to LocalSettings.php."
+# # -----------------------------------------------------------------------
+# # END OF CUSTOM SETTINGS
+# # -----------------------------------------------------------------------
+# EOF
+#         echo "Appended custom settings to LocalSettings.php."
 
-    fi
+#     fi
 
 else
     echo "LocalSettings.php found. This is an existing installation."
