@@ -15,7 +15,6 @@ while [ $i -lt 60 ]
 do
     # Use PGPASSWORD environment variable to authenticate the `psql` connection check.
     # The `-c '\q'` command will run silently and check the connection.
-	echo -n "$MEDIAWIKI_DB_PASSWORD"
     if PGPASSWORD="$MEDIAWIKI_DB_PASSWORD" psql -h "$MEDIAWIKI_DB_HOST" -U "$MEDIAWIKI_DB_USER" -d "$MEDIAWIKI_DB_NAME" -c '\q' >/dev/null 2>&1; then
         echo "Database is up."
         break

@@ -81,22 +81,13 @@ WORKDIR /var/www/html
 # The base image already includes Composer.
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
-# Install Composer
+# # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php && \
     mv composer.phar /usr/local/bin/composer
 
-# Install composer dependencies
-COPY composer.json /var/www/html/composer.json
-RUN composer install --no-dev --no-interaction
-
-# # Install SyntaxHighlight_GeSHi
-# RUN set -eux; \
-#     git clone https://gerrit.wikimedia.org/r/mediawiki/extensions/SyntaxHighlight_GeSHi.git /var/www/html/extensions/SyntaxHighlight_GeSHi; \
-#     cd /var/www/html/extensions/SyntaxHighlight_GeSHi; \
-#     git checkout REL1_41; \
-#     rm -rf .git; \
-#     chown -R www-data:www-data /var/www/html/extensions/SyntaxHighlight_GeSHi;
-
+# # Install composer dependencies
+# COPY composer.json /var/www/html/composer.json
+# RUN composer install --no-dev --no-interaction
 
 # --- OpenShift Specific Configuration for Non-Root Execution ---
 # The official MediaWiki image typically runs as 'www-data' (UID 33).
