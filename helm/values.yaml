@@ -63,7 +63,7 @@ mediawiki:
   imagePullSecrets: []
   nameOverride: ""
   fullnameOverride: ""
-  serverName: "https://mediawiki.example.com"
+  siteServer: "https://mediawiki.example.com"
 
 # These values would come from the Dockerfile's ENV variables
   # or from the official MediaWiki Docker image documentation.

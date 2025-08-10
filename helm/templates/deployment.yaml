@@ -144,6 +144,8 @@ spec:
                   key: app-db-password
             - name: MEDIAWIKI_SITE_NAME
               value: {{ .Values.mediawiki.siteName | quote }}
+            - name: MEDIAWIKI_SITE_SERVER
+              value: {{ .Values.mediawiki.siteServer | quote }}
             - name: MEDIAWIKI_ADMIN_USER
               valueFrom:
                 secretKeyRef:
