@@ -7,9 +7,23 @@ set -eo pipefail
 # The first argument is a command to run, for example "php-fpm".
 cmd="$@"
 
-# Check if the database is up before proceeding
+# Simple bash loop to wait for the database to be ready.
 echo "Waiting for database to be ready..."
-/usr/bin/wait-for-it.sh "$MEDIAWIKI_DB_HOST:$MEDIAWIKI_DB_PORT" -t 60 -- echo "Database is up."
+for i in {1..60}; do
+    if psql -h "$MEDIAWIKI_DB_HOST" -U "$MEDIAWIKI_DB_USER" -d "$MEDIAWIKI_DB_NAME" -c '\q' >/dev/null 2>&1; then
+        echo "Database is up."
+        break
+    fi
+    echo -n "."
+    sleep 1
+done
+
+# Check if the database is up or timed out
+if [ $i -eq 60 ]; then
+    echo "Database connection timed out."
+    exit 1
+fi
+
 
 # The persistent volume is mounted at /var/www/html
 cd /var/www/html
@@ -36,11 +50,12 @@ if [ ! -f "$LOCALSETTINGS_FILE" ]; then
 
         # === APPEND CUSTOM SETTINGS ===
         # Add your custom settings from the original LocalSettings.php to the newly generated one.
-        cat > LocalSettings.php <<EOF
+        cat >> LocalSettings.php <<EOF
 $(cat LocalSettings.php)
 
 # -----------------------------------------------------------------------
-# These custom settings are appended to the auto-generated file.
+# START OF CUSTOM SETTINGS
+# These settings were appended to the auto-generated file.
 # -----------------------------------------------------------------------
 
 # --- Database settings (already configured, but for reference) ---
