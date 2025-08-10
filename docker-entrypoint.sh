@@ -63,7 +63,7 @@ if [ ! -f "$LOCALSETTINGS_FILE" ]; then
 
         # === APPEND CUSTOM SETTINGS ===
         # Add your custom settings from the original LocalSettings.php to the newly generated one.
-        cat >> LocalSettings.php <<EOF
+		cat << EOF >> LocalSettings.php
 
 # -----------------------------------------------------------------------
 # START OF CUSTOM SETTINGS
