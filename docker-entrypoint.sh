@@ -7,20 +7,21 @@ set -eo pipefail
 # The first argument is a command to run, for example "php-fpm".
 cmd="$@"
 
-# Simple `while` loop to wait for the database to be ready, using `psql` with credentials.
-
+# Check if the database is up before proceeding, using a simple loop.
 echo "Waiting for database to be ready..."
 
 i=0
 while [ $i -lt 60 ]
 do
-    # Use `PGPASSWORD` environment variable to authenticate the `psql` connection check.
+    # Use PGPASSWORD environment variable to authenticate the `psql` connection check.
+    # The `-c '\q'` command will run silently and check the connection.
+	echo -n "$MEDIAWIKI_DB_PASSWORD"
     if PGPASSWORD="$MEDIAWIKI_DB_PASSWORD" psql -h "$MEDIAWIKI_DB_HOST" -U "$MEDIAWIKI_DB_USER" -d "$MEDIAWIKI_DB_NAME" -c '\q' >/dev/null 2>&1; then
-         echo "Database is up."
-         break
-     fi
-     echo -n "."
-     sleep 1
+        echo "Database is up."
+        break
+    fi
+    echo -n "."
+    sleep 1
     i=$((i+1))
 done
 
@@ -30,7 +31,6 @@ if [ $i -eq 60 ]; then
     exit 1
 fi
 
-
 # The persistent volume is mounted at /var/www/html
 cd /var/www/html
 LOCALSETTINGS_FILE="/var/www/html/LocalSettings.php"
@@ -39,13 +39,19 @@ if [ ! -f "$LOCALSETTINGS_FILE" ]; then
     echo "LocalSettings.php not found. This is a fresh install."
     
     # Check if the database is empty before running install.php.
-    if ! psql -h "$MEDIAWIKI_DB_HOST" -U "$MEDIAWIKI_DB_USER" -d "$MEDIAWIKI_DB_NAME" -c '\dt' | grep -q "public"; then
+    # Use PGPASSWORD to authenticate the `psql` check for a fresh database.
+    if PGPASSWORD="$MEDIAWIKI_DB_PASSWORD" psql -h "$MEDIAWIKI_DB_HOST" -U "$MEDIAWIKI_DB_USER" -d "$MEDIAWIKI_DB_NAME" -c '\dt' | grep -q "public"; then
+        echo "Database is not empty but LocalSettings.php is missing. This is an invalid state."
+        exit 1
+    else
         echo "Database is empty. Running install.php to create the schema and initial config."
         
-		# Use install.php to set up the new wiki, passing database details as arguments
+        # Use install.php to set up the new wiki, passing all database details as arguments
         # to ensure it does not default to a local socket.
         php maintenance/install.php \
             --dbserver "$MEDIAWIKI_DB_HOST" \
+            --dbport "$MEDIAWIKI_DB_PORT" \
+            --dbtype "postgres" \
             --dbname "$MEDIAWIKI_DB_NAME" \
             --dbuser "$MEDIAWIKI_DB_USER" \
             --dbpass "$MEDIAWIKI_DB_PASSWORD" \
@@ -66,11 +72,6 @@ $(cat LocalSettings.php)
 # These settings were appended to the auto-generated file.
 # -----------------------------------------------------------------------
 
-# --- Database settings (already configured, but for reference) ---
-# $wgDBserver = "patroni-isd-wiki-db";
-# $wgDBuser = getenv('MEDIAWIKI_DB_USER');
-# $wgDBpassword = getenv('MEDIAWIKI_DB_PASSWORD');
-
 # --- Custom Extensions ---
 # Load VisualEditor and its dependencies
 wfLoadExtension( 'VisualEditor' );
@@ -85,7 +86,7 @@ wfLoadExtension( 'SyntaxHighlight_GeSHi' );
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 $wgShowExceptionDetails = true;
-$wgDevelopmentWarnings = true;
+$wgDevelopmentWarnings = false;
 $wgShowDBErrorBacktrace = true;
 
 # --- Environment and Paths ---
@@ -94,8 +95,6 @@ $wgUseImageMagick = true;
 $wgImageMagickConvertCommand = "/usr/bin/convert";
 $wgSVGFileRenderer = 'rsvg';
 $wgSVGFileRendererPath = '/usr/bin/rsvg-convert';
-# $wgServerName = getenv('MEDIAWIKI_SERVER_NAME');
-# $wgServer = getenv('MEDIAWIKI_SITE_SERVER');
 
 # -----------------------------------------------------------------------
 # END OF CUSTOM SETTINGS
@@ -103,9 +102,6 @@ $wgSVGFileRendererPath = '/usr/bin/rsvg-convert';
 EOF
         echo "Appended custom settings to LocalSettings.php."
 
-    else
-        echo "Database is not empty but LocalSettings.php is missing. This is an invalid state."
-        exit 1
     fi
 
 else
@@ -114,4 +110,11 @@ else
     php maintenance/update.php
 fi
 
-exec "$cmd"
+# Ensure images folder exists and has correct permissions.
+if [ ! -d "images" ]; then
+    mkdir -p images
+fi
+chown -R www-data:www-data /var/www/html/cache
+
+# Execute the main container command, e.g., php-fpm.
+exec "$@"
