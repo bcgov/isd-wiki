@@ -1,76 +1,102 @@
-#!/bin/sh
+#!/bin/bash
+set -eo pipefail
 
-set -e
+# This script is designed to handle both fresh installs and upgrades
+# for a MediaWiki application in an OpenShift/Kubernetes environment.
 
-# This is a simplified entrypoint script for a Kubernetes environment.
-# It assumes:
-# 1. The LocalSettings.php is mounted via a ConfigMap.
-# 2. Composer dependencies are installed during the Dockerfile build.
-# 3. Database credentials are provided via environment variables.
+# The first argument is a command to run, for example "php-fpm".
+cmd="$@"
 
-# Exit if a required environment variable is not set.
-if [ -z "$MEDIAWIKI_DB_HOST" ]; then
-    echo >&2 'error: missing MEDIAWIKI_DB_HOST environment variable'
-    exit 1
-fi
-if [ -z "$MEDIAWIKI_DB_PASSWORD" ]; then
-    echo >&2 'error: missing MEDIAWIKI_DB_PASSWORD environment variable'
-    exit 1
-fi
+# Check if the database is up before proceeding
+echo "Waiting for database to be ready..."
+/usr/bin/wait-for-it.sh "$MEDIAWIKI_DB_HOST:$MEDIAWIKI_DB_PORT" -t 60 -- echo "Database is up."
 
-# Wait for the database to be available before proceeding.
-while ! nc -w 1 "$MEDIAWIKI_DB_HOST" "$MEDIAWIKI_DB_PORT" </dev/null; do
-    echo "Waiting for database at $MEDIAWIKI_DB_HOST:$MEDIAWIKI_DB_PORT..."
-    sleep 1
-done
-echo "Database is up."
-
+# The persistent volume is mounted at /var/www/html
 cd /var/www/html
-
-
 LOCALSETTINGS_FILE="/var/www/html/LocalSettings.php"
 
 if [ ! -f "$LOCALSETTINGS_FILE" ]; then
-  echo "LocalSettings.php not found. This is a fresh install."
-  
-  # The 'psql' command is now available due to the Dockerfile change
-  if ! psql -h "$MEDIAWIKI_DB_HOST" -U "$MEDIAWIKI_DB_USER" -d "$MEDIAWIKI_DB_NAME" -c '\dt' | grep -q "public"; then
-    echo "Database is empty. Running install.php to create the schema and initial config."
+    echo "LocalSettings.php not found. This is a fresh install."
+    
+    # Check if the database is empty before running install.php.
+    if ! psql -h "$MEDIAWIKI_DB_HOST" -U "$MEDIAWIKI_DB_USER" -d "$MEDIAWIKI_DB_NAME" -c '\dt' | grep -q "public"; then
+        echo "Database is empty. Running install.php to create the schema and initial config."
+        
+        # Use install.php to set up the new wiki.
+        php maintenance/install.php \
+            --dbname "$MEDIAWIKI_DB_NAME" \
+            --dbuser "$MEDIAWIKI_DB_USER" \
+            --dbpass "$MEDIAWIKI_DB_PASSWORD" \
+            --server "$MEDIAWIKI_SITE_SERVER" \
+            --lang "$MEDIAWIKI_SITE_LANG" \
+            --pass "$MEDIAWIKI_ADMIN_PASS" \
+            "$MEDIAWIKI_SITE_NAME" "$MEDIAWIKI_ADMIN_USER"
+        
+        echo "Installation complete. LocalSettings.php and database schema created."
 
-    php maintenance/install.php \
-      --dbname "$MEDIAWIKI_DB_NAME" \
-      --dbuser "$MEDIAWIKI_DB_USER" \
-      --dbpass "$MEDIAWIKI_DB_PASSWORD" \
-      --server "$MEDIAWIKI_SITE_SERVER" \
-      --lang "$MEDIAWIKI_SITE_LANG" \
-      --pass "$MEDIAWIKI_ADMIN_PASS" \
-      "$MEDIAWIKI_SITE_NAME" "$MEDIAWIKI_ADMIN_USER"
-    echo "Installation complete. LocalSettings.php and database schema created."
-  else
-    echo "Database is not empty but LocalSettings.php is missing. This is an invalid state."
-    exit 1
-  fi
- else
-    echo "Found LocalSettings.php in persistent volume. Running update.php to migrate the schema."
+        # === APPEND CUSTOM SETTINGS ===
+        # Add your custom settings from the original LocalSettings.php to the newly generated one.
+        cat > LocalSettings.php <<EOF
+$(cat LocalSettings.php)
+
+# -----------------------------------------------------------------------
+# These custom settings are appended to the auto-generated file.
+# -----------------------------------------------------------------------
+
+# --- Database settings (already configured, but for reference) ---
+# $wgDBserver = "patroni-isd-wiki-db";
+# $wgDBuser = getenv('MEDIAWIKI_DB_USER');
+# $wgDBpassword = getenv('MEDIAWIKI_DB_PASSWORD');
+
+# --- Custom Extensions ---
+# Load VisualEditor and its dependencies
+wfLoadExtension( 'VisualEditor' );
+$wgDefaultUserOptions['visualeditor-enable'] = 1;
+$wgVisualEditorEnableWikitext = true;
+$wgHiddenPrefs[] = 'visualeditor-enable-mw-nitro';
+
+# Load SyntaxHighlight_GeSHi
+wfLoadExtension( 'SyntaxHighlight_GeSHi' );
+
+# --- Debugging and Environment ---
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+$wgShowExceptionDetails = true;
+$wgDevelopmentWarnings = true;
+$wgShowDBErrorBacktrace = true;
+
+# --- Environment and Paths ---
+$wgTmpDirectory = "/tmp";
+$wgUseImageMagick = true;
+$wgImageMagickConvertCommand = "/usr/bin/convert";
+$wgSVGFileRenderer = 'rsvg';
+$wgSVGFileRendererPath = '/usr/bin/rsvg-convert';
+$wgServerName = getenv('MEDIAWIKI_SERVER_NAME');
+$wgServer = getenv('MEDIAWIKI_SERVER_URL');
+
+# -----------------------------------------------------------------------
+# END OF CUSTOM SETTINGS
+# -----------------------------------------------------------------------
+EOF
+        echo "Appended custom settings to LocalSettings.php."
+
+    else
+        echo "Database is not empty but LocalSettings.php is missing. This is an invalid state."
+        exit 1
+    fi
+
+else
+    echo "LocalSettings.php found. This is an existing installation."
+    echo "Running update.php to migrate the database schema."
     php maintenance/update.php
-  fi
- fi
+fi
 
 # Ensure images folder exists and has correct permissions.
-# This is a good practice for file uploads.
 if [ ! -d "images" ]; then
     mkdir -p images
     chown www-data:www-data images
 fi
 chown -R www-data:www-data /var/www/html/cache
 
-if [ "$#" -eq 0 ]; then
-    # This is for when the entrypoint is used without a command.
-    # For your deployment, the CMD should be set to 'php-fpm'.
-    exec php-fpm
-else
-    # This allows the entrypoint to be used to run other commands if needed.
-    exec "$@"
-fi
-
+# Execute the main container command, e.g., php-fpm.
 exec "$@"
