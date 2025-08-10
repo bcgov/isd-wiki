@@ -112,7 +112,6 @@ fi
 if [ ! -d "images" ]; then
     mkdir -p images
 fi
-chown -R www-data:www-data /var/www/html/cache
 
 # Execute the main container command, e.g., php-fpm.
 exec "$@"
