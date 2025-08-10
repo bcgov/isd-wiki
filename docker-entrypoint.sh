@@ -7,15 +7,21 @@ set -eo pipefail
 # The first argument is a command to run, for example "php-fpm".
 cmd="$@"
 
-# Simple bash loop to wait for the database to be ready.
+# Simple `while` loop to wait for the database to be ready, using `psql` with credentials.
+
 echo "Waiting for database to be ready..."
-for i in {1..60}; do
-    if psql -h "$MEDIAWIKI_DB_HOST" -U "$MEDIAWIKI_DB_USER" -d "$MEDIAWIKI_DB_NAME" -c '\q' >/dev/null 2>&1; then
-        echo "Database is up."
-        break
-    fi
-    echo -n "."
-    sleep 1
+
+i=0
+while [ $i -lt 60 ]
+do
+    # Use `PGPASSWORD` environment variable to authenticate the `psql` connection check.
+    if PGPASSWORD="$MEDIAWIKI_DB_PASSWORD" psql -h "$MEDIAWIKI_DB_HOST" -U "$MEDIAWIKI_DB_USER" -d "$MEDIAWIKI_DB_NAME" -c '\q' >/dev/null 2>&1; then
+         echo "Database is up."
+         break
+     fi
+     echo -n "."
+     sleep 1
+    i=$((i+1))
 done
 
 # Check if the database is up or timed out
@@ -36,8 +42,10 @@ if [ ! -f "$LOCALSETTINGS_FILE" ]; then
     if ! psql -h "$MEDIAWIKI_DB_HOST" -U "$MEDIAWIKI_DB_USER" -d "$MEDIAWIKI_DB_NAME" -c '\dt' | grep -q "public"; then
         echo "Database is empty. Running install.php to create the schema and initial config."
         
-        # Use install.php to set up the new wiki.
+		# Use install.php to set up the new wiki, passing database details as arguments
+        # to ensure it does not default to a local socket.
         php maintenance/install.php \
+            --dbserver "$MEDIAWIKI_DB_HOST" \
             --dbname "$MEDIAWIKI_DB_NAME" \
             --dbuser "$MEDIAWIKI_DB_USER" \
             --dbpass "$MEDIAWIKI_DB_PASSWORD" \
@@ -106,12 +114,4 @@ else
     php maintenance/update.php
 fi
 
-# Ensure images folder exists and has correct permissions.
-if [ ! -d "images" ]; then
-    mkdir -p images
-    chown www-data:www-data images
-fi
-chown -R www-data:www-data /var/www/html/cache
-
-# Execute the main container command, e.g., php-fpm.
-exec "$@"
+exec "$cmd"
