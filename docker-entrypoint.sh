@@ -100,7 +100,7 @@ if [ ! -f "$LOCALSETTINGS_FILE" ]; then
 # EOF
 #         echo "Appended custom settings to LocalSettings.php."
 
-#     fi
+    fi
 
 else
     echo "LocalSettings.php found. This is an existing installation."
