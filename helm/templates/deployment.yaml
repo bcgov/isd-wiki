@@ -118,7 +118,8 @@ spec:
           - name: fpm
             containerPort: 9000
             protocol: TCP
-        #  command: ["tail", "-f", "/dev/null"] 
+         #  command: ["/usr/local/sbin/php-fpm", "-F"]
+         args: ["php-fpm", "-F"]
          env:
             - name: MEDIAWIKI_DB_TYPE
               value: {{ .Values.mediawiki.database.type | quote }}
