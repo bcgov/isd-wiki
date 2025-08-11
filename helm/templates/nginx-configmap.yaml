@@ -27,6 +27,14 @@ data:
     #   }
 
 
+      # Health check endpoint
+      location = /health {
+        access_log off;
+        return 200 'OK';
+        add_header Content-Type text/plain;
+      }
+
+
       # Pretty URLs for articles
       location /wiki/ {
           rewrite ^/wiki/(.*)$ /html/index.php?title=$1&$args;
