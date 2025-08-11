@@ -11,7 +11,7 @@ data:
     server {
       listen 8080;
       server_name isd-wiki;
-      root /var/www/html;
+      root /var/www;
       index index.php;
 
       # Redirect root to Main Page
