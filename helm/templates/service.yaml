@@ -7,9 +7,21 @@ metadata:
 spec:
   type: {{ .Values.mediawiki.service.type }}
   ports:
-    - port: {{ .Values.mediawiki.service.port }}
-      targetPort: http
+    - name: http-app
       protocol: TCP
-      name: http
+      port: 80
+      targetPort: proxy-traffic
+    - name: https-app
+      protocol: TCP
+      port: 443
+      targetPort: proxy-traffic
+    - name: health
+      protocol: TCP
+      port: 8080
+      targetPort: health-check
+    - name: proxy-direct-8081
+      protocol: TCP
+      port: 8081
+      targetPort: proxy-traffic
   selector:
     {{- include "isd-wiki.selectorLabels" . | nindent 4 }}
