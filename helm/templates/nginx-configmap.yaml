@@ -16,6 +16,12 @@ data:
 
       port_in_redirect off;
 
+      # Trust the forwarded protocol
+      set $real_scheme $http_x_forwarded_proto;
+      if ($real_scheme = 'https') {
+         set $scheme https;
+      }
+
       # Redirect root to Main Page
       location = / {
           return 301 /wiki/Main_Page;
