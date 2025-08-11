@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/instance: isd-wiki
 data:
   nginx.conf: |
-      server {
+    server {
       listen 8080;
       server_name isd-wiki;
       root /var/www/html;
@@ -87,4 +87,4 @@ data:
           access_log off;
           log_not_found off;
       }
-  }
+    }
