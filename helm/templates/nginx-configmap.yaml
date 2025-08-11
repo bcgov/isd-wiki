@@ -95,7 +95,7 @@ data:
         # Allow robots.txt in case you have one
         location = /robots.txt {
         }
-        
+
         # Explicit access to the root website, redirect to main page (adapt as needed)
         location = / {
           return 301 /wiki/Main_Page;
@@ -106,6 +106,5 @@ data:
         location / {
           return 404;
         }
-      }
       }
     

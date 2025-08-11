@@ -32,13 +32,13 @@ fi
 
 # The persistent volume is mounted at /var/www/html
 cd /var/www/html
-LOCALSETTINGS_FILE="/var/www/html/w/LocalSettings.php"
+LOCALSETTINGS_FILE="/var/www/html/LocalSettings.php"
 
 if [ ! -f "$LOCALSETTINGS_FILE" ]; then
     echo "LocalSettings.php not found. This is a fresh install."
     # Ensure the "w" directory exists and has correct permissions.
-    mkdir -p /var/www/html/w
-    cd /var/www/html/w
+    mkdir -p /var/www/html
+    cd /var/www/html
     
     # Check if the database is empty before running install.php.
     # Use PGPASSWORD to authenticate the `psql` check for a fresh database.
