@@ -96,10 +96,10 @@ data:
         location = /robots.txt {
         }
 
-        # Explicit access to the root website, redirect to main page (adapt as needed)
-        location = / {
-          return 301 /wiki/Main_Page;
-        }
+        # # Explicit access to the root website, redirect to main page (adapt as needed)
+        # location = / {
+        #   return 301 /wiki/Main_Page;
+        # }
 
         # Every other entry point will be disallowed.
         # Add specific rules for other entry points/images as needed above this
