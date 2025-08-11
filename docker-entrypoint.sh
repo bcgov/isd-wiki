@@ -32,10 +32,13 @@ fi
 
 # The persistent volume is mounted at /var/www/html
 cd /var/www/html
-LOCALSETTINGS_FILE="/var/www/html/LocalSettings.php"
+LOCALSETTINGS_FILE="/var/www/html/w/LocalSettings.php"
 
 if [ ! -f "$LOCALSETTINGS_FILE" ]; then
     echo "LocalSettings.php not found. This is a fresh install."
+    # Ensure the "w" directory exists and has correct permissions.
+    mkdir -p /var/www/html/w
+    cd /var/www/html/w
     
     # Check if the database is empty before running install.php.
     # Use PGPASSWORD to authenticate the `psql` check for a fresh database.
@@ -48,27 +51,38 @@ if [ ! -f "$LOCALSETTINGS_FILE" ]; then
         # Use install.php to set up the new wiki, passing all database details as arguments
         # to ensure it does not default to a local socket.
         php maintenance/install.php \
-            --dbserver "$MEDIAWIKI_DB_HOST" \
-            --dbport "$MEDIAWIKI_DB_PORT" \
-            --dbtype "postgres" \
-            --dbname "$MEDIAWIKI_DB_NAME" \
-            --dbuser "$MEDIAWIKI_DB_USER" \
-            --dbpass "$MEDIAWIKI_DB_PASSWORD" \
-            --server "$MEDIAWIKI_SITE_SERVER" \
-            --lang "$MEDIAWIKI_SITE_LANG" \
-            --pass "$MEDIAWIKI_ADMIN_PASS" \
+            --dbserver="$MEDIAWIKI_DB_HOST" \
+            --dbport="$MEDIAWIKI_DB_PORT" \
+            --dbtype="postgres" \
+            --dbname="$MEDIAWIKI_DB_NAME" \
+            --dbuser="$MEDIAWIKI_DB_USER" \
+            --dbpass="$MEDIAWIKI_DB_PASSWORD" \
+            --server="$MEDIAWIKI_SITE_SERVER" \
+            --scriptpath="/w" \
+            --lang="$MEDIAWIKI_SITE_LANG" \
+            --pass="$MEDIAWIKI_ADMIN_PASS" \
             "$MEDIAWIKI_SITE_NAME" "$MEDIAWIKI_ADMIN_USER"
         
         echo "Installation complete. LocalSettings.php and database schema created."
 
 #         # === APPEND CUSTOM SETTINGS ===
-#         # Add your custom settings from the original LocalSettings.php to the newly generated one.
-# 		cat << EOF >> LocalSettings.php
 
-# # -----------------------------------------------------------------------
-# # START OF CUSTOM SETTINGS
-# # These settings were appended to the auto-generated file.
-# # -----------------------------------------------------------------------
+
+cat << EOF >> LocalSettings.php
+
+# --- START OF CUSTOM SETTINGS ---
+# These settings were appended to the auto-generated file.
+
+# Short URL configuration
+\$wgArticlePath = "/wiki/\$1";
+\$wgUsePathInfo = true;
+
+# # --- Debugging and Environment ---
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+\$wgShowExceptionDetails = true;
+\$wgDevelopmentWarnings = false;
+\$wgShowDBErrorBacktrace = true;
 
 # # --- Custom Extensions ---
 # # Load VisualEditor and its dependencies
@@ -80,13 +94,6 @@ if [ ! -f "$LOCALSETTINGS_FILE" ]; then
 # # Load SyntaxHighlight_GeSHi
 # # wfLoadExtension( 'SyntaxHighlight_GeSHi' );
 
-# # --- Debugging and Environment ---
-# error_reporting(E_ALL);
-# ini_set('display_errors', 1);
-# $wgShowExceptionDetails = true;
-# $wgDevelopmentWarnings = false;
-# $wgShowDBErrorBacktrace = true;
-
 # # --- Environment and Paths ---
 # $wgTmpDirectory = "/tmp";
 # $wgUseImageMagick = true;
@@ -94,11 +101,10 @@ if [ ! -f "$LOCALSETTINGS_FILE" ]; then
 # $wgSVGFileRenderer = 'rsvg';
 # $wgSVGFileRendererPath = '/usr/bin/rsvg-convert';
 
-# # -----------------------------------------------------------------------
-# # END OF CUSTOM SETTINGS
-# # -----------------------------------------------------------------------
-# EOF
-#         echo "Appended custom settings to LocalSettings.php."
+# --- END OF CUSTOM SETTINGS ---
+EOF
+
+echo "Appended custom settings to LocalSettings.php."
 
     fi
 
