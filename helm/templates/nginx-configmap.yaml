@@ -17,9 +17,15 @@ data:
       port_in_redirect off;
 
       # Redirect root to Main Page
-      location = / {
-          return 301 /wiki/Main_Page;
-      }
+      set $real_scheme $http_x_forwarded_proto;
+
+    #   location = / {
+    #     if ($real_scheme = 'https') {
+    #         return 301 https://$host/wiki/Main_Page;
+    #     }
+    #     return 301 http://$host/wiki/Main_Page;
+    #   }
+
 
       # Pretty URLs for articles
       location /wiki/ {

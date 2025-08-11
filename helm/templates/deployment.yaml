@@ -65,13 +65,6 @@ spec:
             {{- toYaml .Values.nginx.securityContext | nindent 12 }}
          image: "{{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag | default .Chart.AppVersion }}"
          imagePullPolicy: {{ .Values.nginx.image.pullPolicy }}
-         ports:
-          - name: http
-            containerPort: 8080
-            protocol: TCP
-          - name: https
-            containerPort: 8081
-            protocol: TCP
          resources:
           {{- toYaml .Values.nginx.resources | nindent 12 }}
          volumeMounts:
@@ -101,6 +94,12 @@ spec:
               protocol: TCP
             - name: proxy-traffic
               containerPort: 443
+              protocol: TCP
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: https
+              containerPort: 8081
               protocol: TCP
          livenessProbe:
             httpGet:
