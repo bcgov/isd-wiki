@@ -58,7 +58,7 @@ if [ ! -f "$LOCALSETTINGS_FILE" ]; then
             --dbuser="$MEDIAWIKI_DB_USER" \
             --dbpass="$MEDIAWIKI_DB_PASSWORD" \
             --server="$MEDIAWIKI_SITE_SERVER" \
-            --scriptpath="/w" \
+            --scriptpath="/html" \
             --lang="$MEDIAWIKI_SITE_LANG" \
             --pass="$MEDIAWIKI_ADMIN_PASS" \
             "$MEDIAWIKI_SITE_NAME" "$MEDIAWIKI_ADMIN_USER"
