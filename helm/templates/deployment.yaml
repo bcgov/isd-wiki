@@ -90,15 +90,15 @@ spec:
               value: "9000"
          ports:
             - name: health-check
-              containerPort: 80
+              containerPort: 8080
               protocol: TCP
             - name: proxy-traffic
               containerPort: 443
               protocol: TCP
-            - name: http
+            - name: http-app
               containerPort: 8080
               protocol: TCP
-            - name: https
+            - name: https-app
               containerPort: 8081
               protocol: TCP
          livenessProbe:
