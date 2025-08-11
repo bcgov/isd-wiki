@@ -9,93 +9,82 @@ metadata:
 data:
   nginx.conf: |
       server {
-        listen 8080;
-        server_name  _;
-        root   /var/www/html;
-        index  index.php;
-        
-        location / {
-          try_files $uri $uri/ =404;
-        }
+      listen 8080;
+      server_name isd-wiki;
+      root /var/www/html;
+      index index.php;
 
-        # location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-        #     expires max;
-        #     log_not_found off;
-        # }
-        # location ~ \.php$ {
-        #   fastcgi_pass   localhost:9000;
-        #   fastcgi_index  index.php;
-        #   fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
-        #   include        fastcgi_params;
-        # }
+      # Redirect root to Main Page
+      location = / {
+          return 301 /wiki/Main_Page;
+      }
 
-        # Location for wiki's entry points
-        location ~ ^/w/(mw-config/)?(index|load|api|thumb|opensearch_desc|rest|img_auth)\.php$ {
-              # Use the following "location", instead, to disable the MediaWiki web installer/updater.
-            # location ~ ^/w/(index|load|api|thumb|opensearch_desc|rest|img_auth)\.php$ {
-          include /etc/nginx/fastcgi_params;
+      # Pretty URLs for articles
+      location /wiki/ {
+          rewrite ^/wiki/(.*)$ /w/index.php?title=$1&$args;
+      }
+
+      # MediaWiki entry points
+      location ~ ^/w/(mw-config/)?(index|load|api|thumb|opensearch_desc|rest|img_auth)\.php$ {
+          include fastcgi_params;
           fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-          fastcgi_pass 127.0.0.1:9000; # or whatever port your PHP-FPM listens on
-          # fastcgi_pass unix:/run/php-fpm/www.sock;     # Default for RHEL & derivatives
-              # fastcgi_pass unix:/run/php/php8.1-fpm.sock;  # Default for Debian & derivatives
-              # (adjust for PHP version)
-        }
+          fastcgi_pass php-fpm:9000;  # Replace with your actual PHP-FPM container name or socket
+      }
 
-        # Images
-        location /w/images {
-          # Separate location for images/ so .php execution won't apply
-          # as required starting from v1.40
-          add_header X-Content-Type-Options "nosniff";
-              # Serve uploaded HTML as plaintext, don't execute SHTML
-              types { text/plain html htm shtml phtml; }
-        }
-        location /w/images/deleted {
-          # Deny access to deleted images folder
-          deny all;
-        }
-        # MediaWiki assets (usually images)
-        location ~ ^/w/resources/(assets|lib|src) {
+      # General PHP handler (fallback)
+      location ~ \.php$ {
+          include fastcgi_params;
+          fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+          fastcgi_pass php-fpm:9000;
+      }
+
+      # Static assets
+      location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|wasm)$ {
+          expires max;
+          log_not_found off;
+          access_log off;
+          add_header Cache-Control "public";
+      }
+
+      # MediaWiki resources
+      location ~ ^/w/resources/(assets|lib|src) {
           try_files $uri =404;
           add_header Cache-Control "public";
           expires 7d;
-        }
-        # Assets, scripts and styles from skins and extensions
-        location ~ ^/w/(skins|extensions)/.+\.(css|js|gif|jpg|jpeg|png|svg|wasm|ttf|woff|woff2)$ {
+      }
+
+      # Skins and extensions assets
+      location ~ ^/w/(skins|extensions)/.+\.(css|js|gif|jpg|jpeg|png|svg|wasm|ttf|woff|woff2)$ {
           try_files $uri =404;
           add_header Cache-Control "public";
           expires 7d;
-        }
-        # Favicon
-        location = /favicon.ico {
+      }
+
+      # Favicon
+      location = /favicon.ico {
           alias /w/images/6/64/Favicon.ico;
           add_header Cache-Control "public";
           expires 7d;
-        }
-
-        # License and credits files
-        location ~ ^/w/(COPYING|CREDITS)$ {
-          default_type text/plain;
-        }
-        
-        # Handling for Mediawiki REST API, see [[mw:API:REST_API]]
-        location /w/rest.php/ {
-          try_files $uri $uri/ /w/rest.php?$query_string;
-        }
-
-        ## Uncomment the following code for handling image authentication
-        ## Also add "deny all;" in the location for /w/images above
-        #location /w/img_auth.php/ {
-        #	try_files $uri $uri/ /w/img_auth.php?$query_string;
-        #}
-
-        # Handling for the article path (pretty URLs)
-        location /wiki/ {
-          rewrite ^/wiki/(?<pagename>.*)$ /w/index.php;
-        }
-
-        # Allow robots.txt in case you have one
-        location = /robots.txt {
-        }
-
       }
-    
+
+      # Images
+      location /w/images {
+          add_header X-Content-Type-Options "nosniff";
+          types { text/plain html htm shtml phtml; }
+      }
+
+      location /w/images/deleted {
+          deny all;
+      }
+
+      # REST API
+      location /w/rest.php/ {
+          try_files $uri $uri/ /w/rest.php?$query_string;
+      }
+
+      # robots.txt
+      location = /robots.txt {
+          access_log off;
+          log_not_found off;
+      }
+  }
