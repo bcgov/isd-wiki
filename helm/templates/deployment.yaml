@@ -95,16 +95,23 @@ spec:
               value: localhost
             - name: PHP_FPM_PORT
               value: "9000"
-         readinessProbe:
-            httpGet:
-              path: /
-              port: 8080
-            initialDelaySeconds: 10
-            periodSeconds: 5
+         ports:
+            - name: health-check
+              containerPort: 80
+              protocol: TCP
+            - name: proxy-traffic
+              containerPort: 443
+              protocol: TCP
          livenessProbe:
             httpGet:
-              path: /
-              port: 8080
+              path: /health
+              port: health-check
+            initialDelaySeconds: 30
+            periodSeconds: 10
+         readinessProbe:
+            httpGet:
+              path: /health
+              port: health-check
             initialDelaySeconds: 30
             periodSeconds: 10
 

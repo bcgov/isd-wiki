@@ -5,8 +5,6 @@ FROM nginx:1.25-alpine
 WORKDIR /etc/nginx
 
 # Remove default NGINX configuration
-# We will not directly copy our nginx.conf into conf.d/default.conf
-# Instead, we'll create a dedicated directory for ConfigMap mounting
 RUN rm /etc/nginx/conf.d/default.conf
 
 # Modify the main NGINX configuration to include files from the new directory
