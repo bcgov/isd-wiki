@@ -86,11 +86,11 @@ ini_set('display_errors', 1);
 
 # # --- MediaWiki SMTP Settings ---
 \$wgSMTP = [
-    'host'      => "\$MEDIAWIKI_SMTP_HOST",
-    'IDHost'    => "\$MEDIAWIKI_SMTP_ID_HOST",
-    'localhost' => "\$MEDIAWIKI_SMTP_LOCALHOST",
-    'port'      => "\$MEDIAWIKI_SMTP_PORT",
-    'auth'      => "\$MEDIAWIKI_SMTP_AUTH"
+    'host'      => "$MEDIAWIKI_SMTP_HOST",
+    'IDHost'    => "$MEDIAWIKI_SMTP_ID_HOST",
+    'localhost' => "$MEDIAWIKI_SMTP_LOCALHOST",
+    'port'      => "$MEDIAWIKI_SMTP_PORT",
+    'auth'      => "$MEDIAWIKI_SMTP_AUTH"
 ];
 
 # # --- Custom Extensions ---
