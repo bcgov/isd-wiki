@@ -162,6 +162,16 @@ spec:
                 secretKeyRef:
                   name: {{ include "isd-wiki.fullname" . }}-credentials
                   key: admin-password
+            - name: MEDIAWIKI_SMTP_HOST
+              value: {{ .Values.mediawiki.smtp.host | quote }}
+            - name: MEDIAWIKI_SMTP_ID_HOST
+              value: {{ .Values.mediawiki.smtp.idHost | quote }}
+            - name: MEDIAWIKI_SMTP_LOCALHOST
+              value: {{ .Values.mediawiki.smtp.localhost | quote }}
+            - name: MEDIAWIKI_SMTP_PORT
+              value: {{ .Values.mediawiki.smtp.port | quote }}
+            - name: MEDIAWIKI_SMTP_AUTH
+              value: {{ .Values.mediawiki.smtp.auth | quote }}
          volumeMounts:
             - name: tmp-dir
               mountPath: /tmp

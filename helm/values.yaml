@@ -85,6 +85,12 @@ mediawiki:
   adminPassword: "" # Set this securely
   # Add more MediaWiki-specific settings here, which the can inject into LocalSettings.php
 
+  smtp:
+    host: "mail.example.com"
+    idHost: "example.com"
+    localhost: "example.com"
+    port: 25
+    auth: false
 
   serviceAccount:
     # Specifies whether a service account should be created
