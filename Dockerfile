@@ -78,16 +78,43 @@ ENV MEDIAWIKI_VERSION_STR=1_44
 # The official image already has /var/www/html/extensions.
 # We'll clone and install specific extensions here.
 WORKDIR /var/www/html
-# The base image already includes Composer.
-ENV COMPOSER_ALLOW_SUPERUSER=1
 
-# # Install Composer
+# Install Composer
+ENV COMPOSER_ALLOW_SUPERUSER=1
 RUN curl -sS https://getcomposer.org/installer | php && \
     mv composer.phar /usr/local/bin/composer
 
-# # Install composer dependencies
-# COPY composer.json /var/www/html/composer.json
-# RUN composer install --no-dev --no-interaction
+# Install MediaWiki Extensions
+RUN set -eux; \
+    \
+    # PageForms 
+    git clone --depth 1 --branch REL1_44 \
+    https://gerrit.wikimedia.org/r/mediawiki/extensions/PageForms \
+    extensions/PageForms; \
+    \
+    # CategoryTree 
+    git clone --depth 1 --branch REL1_44 \
+    https://gerrit.wikimedia.org/r/mediawiki/extensions/CategoryTree \
+    extensions/CategoryTree; \
+    \
+    # TitleKey 
+    git clone --depth 1 --branch REL1_44 \
+    https://gerrit.wikimedia.org/r/mediawiki/extensions/TitleKey \
+    extensions/TitleKey; \
+    \
+    # TemplateData 
+    git clone --depth 1 --branch REL1_44 \
+    https://gerrit.wikimedia.org/r/mediawiki/extensions/TemplateData \
+    extensions/TemplateData; \
+    \
+    # VEForAll 
+    git clone --depth 1 --branch REL1_44 \
+    https://gerrit.wikimedia.org/r/mediawiki/extensions/VEForAll \
+    extensions/VEForAll; \
+    \
+    # Install Composer dependencies for extensions that need them
+    cd extensions/PageForms && composer install --no-dev --no-interaction || true; \
+    cd /var/www/html;
 
 # --- OpenShift Specific Configuration for Non-Root Execution ---
 # The official MediaWiki image typically runs as 'www-data' (UID 33).
@@ -127,4 +154,3 @@ CMD ["php-fpm"]
 LABEL org.opencontainers.image.source="https://github.com/bcgov/isd-wiki" \
     org.opencontainers.image.description="MediaWiki with extensions for OpenShift" \
     org.opencontainers.image.licenses="GPL-2.0-only"
-
