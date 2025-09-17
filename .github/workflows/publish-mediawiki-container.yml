@@ -3,7 +3,7 @@ name: Build and Push ISD Wiki Container Image to GHCR
 on:
   push:
     branches:
-      - main # Trigger on pushes to the main branch
+      - test # Trigger on pushes to the main branch
     tags:
       - 'v*.*.*' # Trigger on new tags like v1.0.0, v1.0.1, etc.
   workflow_dispatch: # Allows manual triggering from the GitHub UI
@@ -38,7 +38,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-test
           tags: |
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
             type=sha,format=short
