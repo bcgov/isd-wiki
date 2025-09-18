@@ -136,6 +136,8 @@ $wgDefaultUserOptions['visualeditor-enable'] = 1;
 # # Load TitleKey
 wfLoadExtension( 'TitleKey' );
 
+# here
+
 # # Load VEforALL
 wfLoadExtension( 'VEForAll' );
 
