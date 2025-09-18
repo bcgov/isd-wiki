@@ -130,13 +130,11 @@ $wgDefaultUserOptions['visualeditor-enable'] = 1;
 # $wgSVGFileRenderer = 'rsvg';
 # $wgSVGFileRendererPath = '/usr/bin/rsvg-convert';
 
-#test
 
 
-# # Load TitleKey
+# # Load TitleKey here
 wfLoadExtension( 'TitleKey' );
 
-# here
 
 # # Load VEforALL
 wfLoadExtension( 'VEForAll' );
