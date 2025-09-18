@@ -95,28 +95,28 @@ ini_set('display_errors', 1);
 
 ## To enable image uploads, make sure the 'images' directory
 ## is writable, then set this to true:
-$wgEnableUploads = true;
-$wgFileExtensions = array('png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx');
-$wgStrictFileExtensions = true;
-$wgMaxUploadSize = 10 * 1024 * 1024; // 10 MB max
-$wgUploadSizeWarning = 5 * 1024 * 1024; // Warn at 5 MB
+\$wgEnableUploads = true;
+\$wgFileExtensions = array('png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx');
+\$wgStrictFileExtensions = true;
+\$wgMaxUploadSize = 10 * 1024 * 1024; // 10 MB max
+\$wgUploadSizeWarning = 5 * 1024 * 1024; // Warn at 5 MB
 
 
 # Prevent anonymous users from editing
 
-$wgGroupPermissions['*']['edit'] = false;
-$wgGroupPermissions['*']['createaccount'] = false;
-$wgGroupPermissions['*']['createtalk'] = false;
+\$wgGroupPermissions['*']['edit'] = false;
+\$wgGroupPermissions['*']['createaccount'] = false;
+\$wgGroupPermissions['*']['createtalk'] = false;
 
 # Allow registered users to edit and upload
-$wgGroupPermissions['user']['edit'] = true;
-$wgGroupPermissions['user']['upload'] = true;
+\$wgGroupPermissions['user']['edit'] = true;
+\$wgGroupPermissions['user']['upload'] = true;
 
 
 # # --- Custom Extensions ---
 # # Load VisualEditor and its dependencies
 wfLoadExtension( 'VisualEditor' );
-$wgDefaultUserOptions['visualeditor-enable'] = 1;
+\$wgDefaultUserOptions['visualeditor-enable'] = 1;
 # $wgVisualEditorEnableWikitext = true;
 # $wgHiddenPrefs[] = 'visualeditor-enable-mw-nitro';
 
@@ -124,11 +124,11 @@ $wgDefaultUserOptions['visualeditor-enable'] = 1;
 # # wfLoadExtension( 'SyntaxHighlight_GeSHi' );
 
 # # --- Environment and Paths ---
-# $wgTmpDirectory = "/tmp";
-# $wgUseImageMagick = true;
-# $wgImageMagickConvertCommand = "/usr/bin/convert";
-# $wgSVGFileRenderer = 'rsvg';
-# $wgSVGFileRendererPath = '/usr/bin/rsvg-convert';
+# \$wgTmpDirectory = "/tmp";
+# \$wgUseImageMagick = true;
+# \$wgImageMagickConvertCommand = "/usr/bin/convert";
+# \$wgSVGFileRenderer = 'rsvg';
+# \$wgSVGFileRendererPath = '/usr/bin/rsvg-convert';
 
 
 
