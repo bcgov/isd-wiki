@@ -83,6 +83,7 @@ ini_set('display_errors', 1);
 \$wgShowExceptionDetails = true;
 \$wgDevelopmentWarnings = false;
 \$wgShowDBErrorBacktrace = true;
+\$wgLanguageCode = "en";
 
 # # --- MediaWiki SMTP Settings ---
 \$wgSMTP = [
