@@ -1,0 +1,74 @@
+certificates:
+  - cert: aebbdd-nonprod/gateway/test/cert
+    key: aebbdd-nonprod/gateway/test/key
+    tags: [$NS]
+    id: 1a05e9d6-7761-4f8a-807c-1053459b3f54a
+    snis:
+      - name: aebbdd-nonprod/gateway/test/host
+        id: 1a05e9d6-7761-4f8a-807c-1053459b3f55
+        tags: [$NS]
+
+services:
+  - name: idir-sso-gateway-test
+    host: aebbdd-nonprod/gateway/test/servicehost
+    tags: [$NS]
+    port: 80
+    protocol: http
+    retries: 0
+    routes:
+      - name: test-route-test
+        tags: [$NS]
+        hosts:
+          - aebbdd-nonprod/gateway/test/host
+        paths:
+          - /
+        strip_path: false
+        https_redirect_status_code: 426
+        path_handling: v0
+        request_buffering: true
+        response_buffering: true
+        preserve_host: true
+        plugins:
+          - enabled: true
+            name: oidc
+            tags: [$NS]
+            config:
+              access_token_as_bearer: "no"
+              access_token_header_name: Authorization
+              bearer_jwt_auth_allowed_auds:
+                - sdpr-amp-doolittle-5190
+              bearer_jwt_auth_enable: "no"
+              bearer_jwt_auth_signing_algs:
+                - RS256
+              bearer_only: "no"
+              client_id: sdpr-amp-doolittle-5190
+              client_secret: aebbdd-nonprod/gateway/test/clientsecret
+              disable_access_token_header: "yes"
+              disable_id_token_header: "yes"
+              disable_userinfo_header: "yes"
+              discovery: aebbdd-nonprod/gateway/test/discovery
+              filters: null
+              groups_claim: client_roles
+              header_claims: [idir_username, email]
+              header_names: [X-Idir-Username, X-User-Email]
+              id_token_header_name: X-ID-Token
+              introspection_cache_ignore: "no"
+              introspection_endpoint: null
+              introspection_endpoint_auth_method: null
+              logout_path: /logout
+              realm: kong
+              recovery_page_path: null
+              redirect_after_logout_uri: /
+              redirect_uri: aebbdd-nonprod/gateway/test/redirect_url
+              response_type: code
+              revoke_tokens_on_logout: "yes"
+              scope: openid
+              session_secret: null
+              skip_already_auth_requests: "no"
+              ssl_verify: "no"
+              timeout: null
+              token_endpoint_auth_method: client_secret_post
+              unauth_action: auth
+              use_jwks: "yes"
+              userinfo_header_name: X-USERINFO
+              validate_scope: "yes"
