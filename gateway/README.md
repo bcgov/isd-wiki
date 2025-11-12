@@ -27,43 +27,28 @@ gwa config set gateway <gateway-name-or-id>
 # apply (deploy) a gateway
 gwa apply -i gw-config.yaml
 
-# apply (deploy) a gateway with a custo domain
+# apply (deploy) a gateway with a custom domain
 gwa pg gw-config.yaml
 ```
-### Version Control
-# TODO
 
-## Tags
+### Version Control
+Gateway version control is currently handled via template script with vault injection, see ./gateway/README.md
 
 ## Deck
 
 deck (Declarative Configuration) is a command-line tool originally designed for Kong gateways that lets you manage gateway configuration (routes, services, and plugins) as code. It’s typically used to export, diff, and sync configurations in YAML format, but for BC Gov APS setups that already use Git + gwa, it’s optional since the Git-based workflow already provides declarative control and versioning of gateway configs.
 [Official documentation](https://docs.konghq.com/deck/latest/)
 
-# Sample gateway 
+# FAQ
 
-```yaml
-kind: GatewayService
-name: midware-service-dev
-tags: [ns.gw-c5efb]
-host: social-middleware.f6e00d-dev.svc
-port: 80
-protocol: http
+## Remove a gateway
+Removing a gateway can be done via the APS portal or with gwa gateway destroy. 
 
-plugins:
-  - name: rate-limiting
-    tags: [ns.gw-c5efb]
-    config:
-      fault_tolerant: true
-      hide_client_headers: false
-      limit_by: ip
-      minute: 300
-      second: null
-      hour: 2000
-      day: 10000
-      month: null
-      year: null
+## Disabling a gateway
+While there is no 'built in' way to disable a gateway. In practice this can be done by commenting out the routes.
 
+## Namespaces - dev/test/prod
+To use the same gateway across different namespaces. You can modify the `tag` before deploying: e.g:   tags: [ns.gw-0b6a6.prod]
 
-
-```
+## Support
+The BC Government APS team has a rocketchat channel `aps-ops` for support
