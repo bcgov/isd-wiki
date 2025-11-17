@@ -16,7 +16,7 @@ data:
 
       port_in_redirect off;
 
-      
+
         location = / {
             return 301 /wiki/Main_Page;
         }
@@ -50,8 +50,10 @@ data:
           fastcgi_pass 127.0.0.1:9000;
       }
 
-      # Static assets
-      location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|wasm)$ {
+      # Static assets (excluding /wiki/ paths which need MediaWiki processing)
+      # The negative lookahead (?!wiki/) prevents matching URLs starting with /wiki/
+      # This ensures File: pages like /wiki/File:Image.png are handled by MediaWiki
+      location ~* ^/(?!wiki/).*\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|wasm)$ {
           expires max;
           log_not_found off;
           access_log off;
