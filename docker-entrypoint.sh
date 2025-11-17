@@ -39,7 +39,7 @@ if [ ! -f "$LOCALSETTINGS_FILE" ]; then
     # Ensure the "w" directory exists and has correct permissions.
     mkdir -p /var/www/html
     cd /var/www/html
-    
+
     # Check if the database is empty before running install.php.
     # Use PGPASSWORD to authenticate the `psql` check for a fresh database.
     if PGPASSWORD="$MEDIAWIKI_DB_PASSWORD" psql -h "$MEDIAWIKI_DB_HOST" -U "$MEDIAWIKI_DB_USER" -d "$MEDIAWIKI_DB_NAME" -c '\dt' | grep -q "public"; then
@@ -47,7 +47,7 @@ if [ ! -f "$LOCALSETTINGS_FILE" ]; then
         exit 1
     else
         echo "Database is empty. Running install.php to create the schema and initial config."
-        
+
         # Use install.php to set up the new wiki, passing all database details as arguments
         # to ensure it does not default to a local socket.
         php maintenance/install.php \
@@ -62,7 +62,7 @@ if [ ! -f "$LOCALSETTINGS_FILE" ]; then
             --lang="$MEDIAWIKI_SITE_LANG" \
             --pass="$MEDIAWIKI_ADMIN_PASS" \
             "$MEDIAWIKI_SITE_NAME" "$MEDIAWIKI_ADMIN_USER"
-        
+
         echo "Installation complete. LocalSettings.php and database schema created."
 
 #         # === APPEND CUSTOM SETTINGS ===
@@ -76,6 +76,11 @@ cat << EOF >> LocalSettings.php
 # Short URL configuration
 \$wgArticlePath = "/wiki/\$1";
 \$wgUsePathInfo = true;
+
+# Upload path configuration
+# Set upload path to /html/images to match nginx configuration
+# (nginx root is /var/www, so /var/www/html/images maps to /html/images URL)
+\$wgUploadPath = "/html/images";
 
 # # --- Debugging and Environment ---
 error_reporting(E_ALL);
