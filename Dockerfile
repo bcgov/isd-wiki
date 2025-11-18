@@ -7,7 +7,6 @@ FROM mediawiki:stable-fpm-alpine
 # including git (for extensions), imagemagick, librsvg2-bin (for SVG rendering),
 # python3 (for SyntaxHighlighting), unzip (for some extensions), and jq (for Vault secret processing).
 RUN set -eux; \
-    \
     apk add --no-cache \
     git \
     imagemagick \
@@ -27,7 +26,6 @@ RUN set -eux; \
 # Also adding ldap, pcntl, zip, imagick, redis, memcached as per your original Dockerfile,
 # ensuring their build dependencies are handled.
 RUN set -eux; \
-    \
     apk add --no-cache --virtual .build-deps \
     $PHPIZE_DEPS \
     icu-dev \
@@ -40,7 +38,6 @@ RUN set -eux; \
     libmemcached-dev \
     postgresql-dev \
     ; \
-    \
     docker-php-ext-install -j "$(nproc)" \
     ldap \
     pgsql \
@@ -48,7 +45,6 @@ RUN set -eux; \
     zip \
     # imagick is installed via pecl, not docker-php-ext-install for ImageMagick
     ; \
-    \
     pecl install imagick redis memcached; \
     docker-php-ext-enable \
     imagick \
@@ -56,7 +52,6 @@ RUN set -eux; \
     memcached \
     ; \
     rm -r /tmp/pear; \
-    \
     runDeps="$( \
     scanelf --needed --nobanner --format '%n#p' --recursive /usr/local/lib/php/extensions \
     | tr ',' '\n' \
@@ -74,20 +69,28 @@ ENV MEDIAWIKI_MAJOR_VERSION=1.44
 ENV MEDIAWIKI_VERSION=1.44.0
 ENV MEDIAWIKI_VERSION_STR=1_44
 
-# --- Install MediaWiki Extensions ---
+# --- Install Composer ---
 # The official image already has /var/www/html/extensions.
 # We'll clone and install specific extensions here.
-WORKDIR /var/www/html
-# The base image already includes Composer.
 ENV COMPOSER_ALLOW_SUPERUSER=1
-
-# # Install Composer
+WORKDIR /var/www/html
 RUN curl -sS https://getcomposer.org/installer | php && \
     mv composer.phar /usr/local/bin/composer
 
-# # Install composer dependencies
-# COPY composer.json /var/www/html/composer.json
-# RUN composer install --no-dev --no-interaction
+# --- Install MediaWiki Extensions ---
+RUN set -eux; \
+    extensions="PageForms CategoryTree TitleKey TemplateData VEForAll"; \
+    for ext in $extensions; do \
+        target_dir="extensions/$ext"; \
+        if [ -d "$target_dir" ]; then \
+            echo "Skipping $ext: already exists."; \
+        else \
+            git clone --depth 1 --branch REL1_44 \
+              "https://gerrit.wikimedia.org/r/mediawiki/extensions/$ext" "$target_dir"; \
+        fi; \
+    done; \
+    cd extensions/PageForms && composer install --no-dev --no-interaction || true; \
+    cd /var/www/html;
 
 # --- OpenShift Specific Configuration for Non-Root Execution ---
 # The official MediaWiki image typically runs as 'www-data' (UID 33).
@@ -100,19 +103,13 @@ RUN set -eux; \
     mkdir -p /var/www/html/images; \
     chmod 775 /var/www/html/images; \
     chown -R www-data:www-data /var/www/html/images; \
-    \
-    # Ensure extensions and skins directories are writable if you dynamically add/update them.
-    # For build-time installs, this ensures the arbitrary UID can write if needed.
     mkdir -p /var/www/html/extensions; \
     mkdir -p /var/www/html/skins; \
     chmod 775 /var/www/html/extensions /var/www/html/skins; \
     chown -R www-data:www-data /var/www/html/extensions /var/www/html/skins;
 
 # --- Final Permissions and Volume ---
-# /var/www/data is for SQLite or other data. The base image might use /var/www/html/data.
-# The `images` directory is typically where user uploads go.
 RUN mkdir -p /var/www/data
-
 VOLUME /var/www/data
 
 EXPOSE 9000
@@ -123,8 +120,7 @@ RUN chmod +x /docker-entrypoint.sh
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["php-fpm"]
 
-# Best practice: Add labels for maintainability
+# --- Labels ---
 LABEL org.opencontainers.image.source="https://github.com/bcgov/isd-wiki" \
     org.opencontainers.image.description="MediaWiki with extensions for OpenShift" \
     org.opencontainers.image.licenses="GPL-2.0-only"
-
