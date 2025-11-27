@@ -1,36 +1,51 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-# =========================================
-# MediaWiki Backup Script (Windows Git Bash)
-# Using oc exec + tar (reliable)
-# =========================================
+##############################################################################
+# MediaWiki Backup Script (Windows Git Bash / Linux)
+#
+# Backs up MediaWiki data and HTML files from a Kubernetes pod.
+#
+# Requirements:
+#   - oc CLI installed and in PATH
+#   - Bash shell (Git Bash on Windows works)
+#   - Access to a service account with permission to exec in MediaWiki pod
+##############################################################################
 
-# Timestamp
+# -----------------------
+# CONFIGURATION
+# -----------------------
+
+# Full path root for backups
+# Example: Windows Git Bash: /c/Users/YourUser/backups/mw
+# Example: Linux: /home/user/backups/mw
+BACKUP_ROOT="${BACKUP_ROOT:-$HOME/backups/mw/mediawiki-backups}"
+
+# Kubernetes/OpenShift
+KUBECONFIG="${KUBECONFIG:-$HOME/.kube/backup-bot-kubeconfig}"
+SA_NAME="${SA_NAME:-backup-bot}"
+NAMESPACE="${NAMESPACE:-aebbdd-test}"
+SERVER="${SERVER:-https://api.silver.devops.gov.bc.ca:6443}"
+
+# MediaWiki pod label selector and container name
+MW_LABEL="${MW_LABEL:-app.kubernetes.io/name=isd-wiki}"
+MW_CONTAINER="${MW_CONTAINER:-mediawiki}"
+
+# -----------------------
+# TIMESTAMP & BACKUP DIR
+# -----------------------
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-
-# Backup directories
-BACKUP_ROOT="$HOME/backups/mw/mediawiki-backups"
 BACKUP_DIR="$BACKUP_ROOT/$TIMESTAMP"
 mkdir -p "$BACKUP_DIR"
 
 echo "==================================="
-echo " MediaWiki Local Backup Script"
+echo " MediaWiki Backup Script"
 echo " Timestamp: $TIMESTAMP"
 echo " Backup directory: $BACKUP_DIR"
 echo "==================================="
 
 # -----------------------
-# Kubeconfig & Service Account
-# -----------------------
-KUBECONFIG="$HOME/.kube/backup-bot-kubeconfig"
-SA_NAME="backup-bot"
-NAMESPACE="aebbdd-test"
-SERVER="https://api.silver.devops.gov.bc.ca:6443"
-export KUBECONFIG
-
-# -----------------------
-# Refresh service account token (long-lived)
+# Refresh service account token
 # -----------------------
 echo "Refreshing service account token..."
 SA_TOKEN=$(oc create token "$SA_NAME" --duration=8760h -n "$NAMESPACE")
@@ -54,7 +69,7 @@ echo ""
 # Find MediaWiki pod
 # -----------------------
 echo "Finding MediaWiki pod..."
-POD_NAME=$(oc get pods -l app.kubernetes.io/name=isd-wiki \
+POD_NAME=$(oc get pods -n "$NAMESPACE" -l "$MW_LABEL" \
     -o jsonpath='{.items[?(@.status.phase=="Running")].metadata.name}')
 
 if [ -z "$POD_NAME" ]; then
@@ -69,7 +84,7 @@ echo ""
 # -----------------------
 DATA_TAR="$BACKUP_DIR/mediawiki-data.tar.gz"
 echo "Backing up /var/www/data (user uploads) to $DATA_TAR ..."
-oc exec "$POD_NAME" -c mediawiki -- sh -c 'tar czf - -C /var/www data' > "$DATA_TAR"
+oc exec -n "$NAMESPACE" "$POD_NAME" -c "$MW_CONTAINER" -- sh -c 'tar czf - -C /var/www data' > "$DATA_TAR"
 echo "✓ Data backup complete"
 echo ""
 
@@ -78,7 +93,7 @@ echo ""
 # -----------------------
 HTML_TAR="$BACKUP_DIR/mediawiki-html.tar.gz"
 echo "Backing up /var/www/html (MediaWiki files) to $HTML_TAR ..."
-oc exec "$POD_NAME" -c mediawiki -- sh -c 'tar czf - -C /var/www html' > "$HTML_TAR"
+oc exec -n "$NAMESPACE" "$POD_NAME" -c "$MW_CONTAINER" -- sh -c 'tar czf - -C /var/www html' > "$HTML_TAR"
 echo "✓ HTML backup complete"
 echo ""
 
