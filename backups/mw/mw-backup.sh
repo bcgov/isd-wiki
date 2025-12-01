@@ -2,38 +2,27 @@
 set -euo pipefail
 
 ##############################################################################
-# MediaWiki Backup Script (Windows Git Bash / Linux)
-#
-# Backs up MediaWiki data and HTML files from a Kubernetes pod.
-#
-# Requirements:
-#   - oc CLI installed and in PATH
-#   - Bash shell (Git Bash on Windows works)
-#   - Access to a service account with permission to exec in MediaWiki pod
+# MediaWiki Backup Script - Task Scheduler Friendly (Windows Git Bash)
 ##############################################################################
 
-# -----------------------
+##########################
 # CONFIGURATION
-# -----------------------
+##########################
 
-# Full path root for backups
-# Example: Windows Git Bash: /c/Users/YourUser/backups/mw
-# Example: Linux: /home/user/backups/mw
-BACKUP_ROOT="${BACKUP_ROOT:-$HOME/backups/mw/mediawiki-backups}"
+# Absolute backup root directory
+BACKUP_ROOT="${BACKUP_ROOT:-/c/Users/chridodd/backups/mw/mediawiki-backups}"
 
 # Kubernetes/OpenShift
-KUBECONFIG="${KUBECONFIG:-$HOME/.kube/backup-bot-kubeconfig}"
+export KUBECONFIG="${KUBECONFIG:-/c/Users/chridodd/.kube/backup-bot-kubeconfig}"
 SA_NAME="${SA_NAME:-backup-bot}"
 NAMESPACE="${NAMESPACE:-aebbdd-test}"
 SERVER="${SERVER:-https://api.silver.devops.gov.bc.ca:6443}"
 
-# MediaWiki pod label selector and container name
+# Pod info
 MW_LABEL="${MW_LABEL:-app.kubernetes.io/name=isd-wiki}"
 MW_CONTAINER="${MW_CONTAINER:-mediawiki}"
 
-# -----------------------
-# TIMESTAMP & BACKUP DIR
-# -----------------------
+# Timestamp & backup directory
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP_DIR="$BACKUP_ROOT/$TIMESTAMP"
 mkdir -p "$BACKUP_DIR"
@@ -44,18 +33,18 @@ echo " Timestamp: $TIMESTAMP"
 echo " Backup directory: $BACKUP_DIR"
 echo "==================================="
 
-# -----------------------
-# Refresh service account token
-# -----------------------
+##########################
+# REFRESH SERVICE ACCOUNT TOKEN
+##########################
 echo "Refreshing service account token..."
 SA_TOKEN=$(oc create token "$SA_NAME" --duration=8760h -n "$NAMESPACE")
 oc login --token="$SA_TOKEN" --server="$SERVER" --namespace="$NAMESPACE" --kubeconfig="$KUBECONFIG"
 echo "✓ Token refreshed and kubeconfig updated"
 echo ""
 
-# -----------------------
-# Check OpenShift authentication
-# -----------------------
+##########################
+# CHECK OPENSHIFT AUTH
+##########################
 echo "Checking OpenShift authentication..."
 oc_whoami=$(oc whoami)
 if [ -z "$oc_whoami" ]; then
@@ -65,9 +54,9 @@ fi
 echo "Authenticated as: $oc_whoami"
 echo ""
 
-# -----------------------
-# Find MediaWiki pod
-# -----------------------
+##########################
+# FIND MEDIAWIKI POD
+##########################
 echo "Finding MediaWiki pod..."
 POD_NAME=$(oc get pods -n "$NAMESPACE" -l "$MW_LABEL" \
     -o jsonpath='{.items[?(@.status.phase=="Running")].metadata.name}')
@@ -79,27 +68,27 @@ fi
 echo "Found pod: $POD_NAME"
 echo ""
 
-# -----------------------
-# Backup /var/www/data
-# -----------------------
-DATA_TAR="$BACKUP_DIR/mediawiki-data.tar.gz"
-echo "Backing up /var/www/data (user uploads) to $DATA_TAR ..."
+##########################
+# BACKUP /var/www/data
+##########################
+DATA_TAR="$BACKUP_DIR/mediawiki-data-${TIMESTAMP}.tar.gz"
+echo "Backing up /var/www/data to $DATA_TAR ..."
 oc exec -n "$NAMESPACE" "$POD_NAME" -c "$MW_CONTAINER" -- sh -c 'tar czf - -C /var/www data' > "$DATA_TAR"
 echo "✓ Data backup complete"
 echo ""
 
-# -----------------------
-# Backup /var/www/html
-# -----------------------
-HTML_TAR="$BACKUP_DIR/mediawiki-html.tar.gz"
-echo "Backing up /var/www/html (MediaWiki files) to $HTML_TAR ..."
+##########################
+# BACKUP /var/www/html
+##########################
+HTML_TAR="$BACKUP_DIR/mediawiki-html-${TIMESTAMP}.tar.gz"
+echo "Backing up /var/www/html to $HTML_TAR ..."
 oc exec -n "$NAMESPACE" "$POD_NAME" -c "$MW_CONTAINER" -- sh -c 'tar czf - -C /var/www html' > "$HTML_TAR"
 echo "✓ HTML backup complete"
 echo ""
 
-# -----------------------
-# Backup summary
-# -----------------------
+##########################
+# BACKUP SUMMARY
+##########################
 echo "==================================="
 echo "Backup Summary"
 echo "==================================="

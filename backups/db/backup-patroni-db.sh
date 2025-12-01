@@ -1,41 +1,32 @@
 #!/bin/bash
-
-##############################################################################
-# Patroni PostgreSQL Database Backup Script (Minimal)
-#
-# Usage:
-#   ./backup-patroni-db.sh
-#
-# Requirements:
-#   - oc CLI tool installed and in PATH
-#   - Git Bash (Windows) or bash (Linux)
-#   - Valid kubeconfig at $KUBECONFIG
-#
-# Configuration: Set environment variables below or override before running
-##############################################################################
-
 set -euo pipefail
+
+##############################################################################
+# Patroni PostgreSQL Database Backup Script - Task Scheduler Friendly
+##############################################################################
 
 ##########################
 # CONFIGURATION
 ##########################
 
 # Kubernetes namespace and app
-NAMESPACE="${NAMESPACE:-aebbdd-test}"       # e.g., aebbdd-test
-APP_NAME="${APP_NAME:-patroni}"             # e.g., patroni
-DB_NAME="${DB_NAME:-mediawiki}"             # database name
+NAMESPACE="${NAMESPACE:-aebbdd-test}"
+APP_NAME="${APP_NAME:-patroni}"
+DB_NAME="${DB_NAME:-mediawiki}"
 
-# FULL PATH backup directory (must exist or script will create)
-# Example: /c/Users/YourUser/backups/db
-BACKUP_ROOT="${BACKUP_ROOT:-./backups}"
+# Absolute backup path
+BACKUP_ROOT="${BACKUP_ROOT:-/c/Users/chridodd/backups/db/backups}"
 
-# Generate timestamp
+# Path to kubeconfig
+export KUBECONFIG="${KUBECONFIG:-/c/Users/chridodd/.kube/backup-bot-kubeconfig}"
+
+# Optional: service account for automatic token refresh (recommended)
+SA_NAME="${SA_NAME:-backup-bot}"
+SERVER="${SERVER:-https://api.silver.devops.gov.bc.ca:6443}"
+
+# Timestamp & backup directory
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-
-##########################
-# PREPARE BACKUP DIR
-##########################
-BACKUP_DIR="${BACKUP_ROOT}/backup-${TIMESTAMP}"
+BACKUP_DIR="${BACKUP_ROOT}/$(date +%Y%m%d)"
 mkdir -p "$BACKUP_DIR"
 
 echo "=== Patroni Database Backup ==="
@@ -43,6 +34,20 @@ echo "Namespace: $NAMESPACE"
 echo "Database: $DB_NAME"
 echo "Backup directory: $BACKUP_DIR"
 echo ""
+
+##########################
+# REFRESH SERVICE ACCOUNT TOKEN
+##########################
+if command -v oc >/dev/null 2>&1; then
+    echo "Refreshing service account token..."
+    SA_TOKEN=$(oc create token "$SA_NAME" --duration=8760h -n "$NAMESPACE")
+    oc login --token="$SA_TOKEN" --server="$SERVER" --namespace="$NAMESPACE" --kubeconfig="$KUBECONFIG"
+    echo "✓ Token refreshed and kubeconfig updated"
+    echo ""
+else
+    echo "ERROR: oc CLI not found"
+    exit 1
+fi
 
 ##########################
 # FIND LEADER POD
