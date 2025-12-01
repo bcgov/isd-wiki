@@ -12,10 +12,17 @@ Backups are timestamped and stored in a local folder.
 
 1. Git Bash (Windows) or Linux bash shell
 1. oc CLI installed and in PATH
-1. Access to a service account with sufficient permissions in OpenShift/Kubernetes pods
+1. Access to a service account with sufficient permissions in OpenShift/Kubernetes pods (kubeconfig file)
 1. PostgreSQL superuser credentials in a Kubernetes secret
 1. Sufficient disk space for compressed backups
+## Set up
 
+Each folder contains:
+1. backup script
+1. task schedule .bat
+1. task scheduler xml template
+
+Review the short shell and .bat scripts to set any absolute paths then import the xml template in task scheduler. After a test run any logging should be available.
 ## Backup Scripts
 ### 1. PostgreSQL / Patroni
 
