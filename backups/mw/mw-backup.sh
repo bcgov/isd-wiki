@@ -39,7 +39,7 @@ echo "==================================="
 echo "Refreshing service account token..."
 SA_TOKEN=$(oc create token "$SA_NAME" --duration=8760h -n "$NAMESPACE")
 oc login --token="$SA_TOKEN" --server="$SERVER" --namespace="$NAMESPACE" --kubeconfig="$KUBECONFIG"
-echo "✓ Token refreshed and kubeconfig updated"
+echo "Token refreshed and kubeconfig updated"
 echo ""
 
 ##########################
