@@ -86,8 +86,8 @@ export SERVER="https://api.silver.devops.gov.bc.ca:6443"
 
 This will create a timestamped backup folder in $PATRONI_BACKUP_DIR containing:
 
-patroni-globals-YYYYMMDD_HHMMSS.sql.gz
-patroni-mediawiki-YYYYMMDD_HHMMSS.sql.gz
+patroni-globals-YYYYMMDD_HHMMSS.sql.gz  // cluster objects roles / users / priveleges etc
+patroni-mediawiki-YYYYMMDD_HHMMSS.sql.gz  // backs up actual DB
 
 ### MediaWiki
 ```bash
@@ -96,8 +96,8 @@ patroni-mediawiki-YYYYMMDD_HHMMSS.sql.gz
 
 This will create a timestamped backup folder in $MEDIAWIKI_BACKUP_DIR containing:
 
-mediawiki-html.tar.gz
-mediawiki-data.tar.gz
+mediawiki-html.tar.gz  // application code, localsettings
+mediawiki-data.tar.gz  // uploaded files
 
 ## Restoring Backups
 ### PostgreSQL / Patroni
