@@ -49,7 +49,11 @@ Script: backup-mediawiki.sh
 
 # Configuration
 
-Set environment variables before running the scripts. Example:
+Set environment variables before running the scripts. Note if these are not set the script defaults will be used.
+
+It is recommended to check the scripts and test before scheduling.
+
+Example:
 
 ### Windows Git Bash or Linux
 ```bash
@@ -72,7 +76,7 @@ export SA_NAME="backup-bot"
 export SERVER="https://api.silver.devops.gov.bc.ca:6443"
 ```
 
-You can change BACKUP_ROOT to any path accessible to you or your team.
+
 
 ## Running Backups
 ### PostgreSQL / Patroni
