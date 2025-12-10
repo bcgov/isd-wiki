@@ -1,140 +1,179 @@
-## Overview
+# MediaWiki Production Backup
 
-This setup performs:
+Complete backup solution for MediaWiki production environment, deployed in `aebbdd-tools` namespace.
 
-MediaWiki backup: application files and user-uploaded content.
+## What is Backed Up
 
-PostgreSQL/Patroni backup: database globals (roles, tablespaces) and database content.
+### 1. PostgreSQL Database
+- **Database**: `patroni-instance` (app database in aebbdd-prod)
+- **Schedule**: Daily at 1:00 AM
+- **Retention**: 12 daily, 8 weekly, 2 monthly
+- **Method**: pg_dump via backup-container
 
-Backups are timestamped and stored in a local folder.
+### 2. MediaWiki Files
+- **Data volume**: `/var/www/data` from prod MediaWiki pod
+- **HTML volume**: `/var/www/html` from prod MediaWiki pod
+- **Schedule**: Daily at 1:35 AM
+- **Method**: Tar archives streamed via oc exec
 
-## Requirements
+### Storage
+- All backups stored in `mediawiki-backup-prod-backup-storage-backup-pvc` (8Gi)
+- Located in `aebbdd-tools` namespace
+- Path structure: `/backups/daily/YYYY-MM-DD/`
 
-1. Git Bash (Windows) or Linux bash shell
-1. oc CLI installed and in PATH
-1. Access to a service account with sufficient permissions in OpenShift/Kubernetes pods (kubeconfig file)
-1. PostgreSQL superuser credentials in a Kubernetes secret
-1. Sufficient disk space for compressed backups
-## Set up
+## Deployment Steps
 
-Each folder contains:
-1. backup script
-1. task schedule .bat
-1. task scheduler xml template
-
-Review the short shell and .bat scripts to set any absolute paths then import the xml template in task scheduler. After a test run any logging should be available.
-## Backup Scripts
-### 1. PostgreSQL / Patroni
-
-Script: backup-patroni-db.sh
-
-#### Features:
-
-1. Dumps globals (patroni-globals-YYYYMMDD_HHMMSS.sql.gz)
-1. Dumps database (patroni-DBNAME-YYYYMMDD_HHMMSS.sql.gz)
-
-Uses Kubernetes secrets for superuser password
-
-Output directory is timestamped in seperate folder
-
-### 2. MediaWiki
-
-Script: backup-mediawiki.sh
-
-#### Features:
-
-1. Backs up /var/www/html and /var/www/data from the running MediaWiki pod
-1. Compresses backups to mediawiki-html.tar.gz and mediawiki-data.tar.gz
-1. Uses service account for authentication
-
-# Configuration
-
-Set environment variables before running the scripts. Note if these are not set the script defaults will be used.
-
-It is recommended to check the scripts and test before scheduling.
-
-Example:
-
-### Windows Git Bash or Linux
+### Prerequisites
 ```bash
-export BACKUP_ROOT="$HOME/backups"
-export PATRONI_BACKUP_DIR="$BACKUP_ROOT/patroni"
-export MEDIAWIKI_BACKUP_DIR="$BACKUP_ROOT/mw/mediawiki-backups"
-export KUBECONFIG="$HOME/.kube/backup-bot-kubeconfig"
-```
-### PostgreSQL / Patroni
-```bash
-export NAMESPACE="aebbdd-test"
-export APP_NAME="patroni"
-export DB_NAME="mediawiki"
-```
-### MediaWiki
-```bash
-export MW_NAMESPACE="aebbdd-test"
-export MW_APP_NAME="isd-wiki"
-export SA_NAME="backup-bot"
-export SERVER="https://api.silver.devops.gov.bc.ca:6443"
+oc login --token=<your-token> --server=https://api.silver.devops.gov.bc.ca:6443
+oc project aebbdd-tools
 ```
 
+### 1. Create Database Secret
+Get the prod database credentials and create secret in tools namespace:
 
-
-## Running Backups
-### PostgreSQL / Patroni
 ```bash
-./backup-patroni-db.sh
+# Get prod credentials
+POSTGRES_USER=$(oc get secret patroni-instance -n aebbdd-prod -o jsonpath='{.data.superuser-username}' | base64 -d)
+POSTGRES_PASS=$(oc get secret patroni-instance -n aebbdd-prod -o jsonpath='{.data.superuser-password}' | base64 -d)
+
+# Create secret in tools namespace
+oc create secret generic patroni-isd-wiki-db-prod-secret \
+  --from-literal=superuser-username=$POSTGRES_USER \
+  --from-literal=superuser-password=$POSTGRES_PASS \
+  -n aebbdd-tools
 ```
 
-This will create a timestamped backup folder in $PATRONI_BACKUP_DIR containing:
+### 2. Create Network Resources
 
-patroni-globals-YYYYMMDD_HHMMSS.sql.gz  // cluster objects roles / users / priveleges etc
-patroni-mediawiki-YYYYMMDD_HHMMSS.sql.gz  // backs up actual DB
-
-### MediaWiki
 ```bash
-./backup-mediawiki.sh
+# Create network policy in prod to allow backup access
+oc apply -f network-policy.yaml
+
+# Create ExternalName service in tools to resolve prod database
+oc apply -f external-name-service.yaml
 ```
 
-This will create a timestamped backup folder in $MEDIAWIKI_BACKUP_DIR containing:
+### 3. Deploy Database Backup
 
-mediawiki-html.tar.gz  // application code, localsettings
-mediawiki-data.tar.gz  // uploaded files
-
-## Restoring Backups
-### PostgreSQL / Patroni
-
-#### Copy backup files to Patroni pod:
 ```bash
-oc cp patroni-globals-YYYYMMDD_HHMMSS.sql.gz <pod>:/tmp/globals.sql.gz
-oc cp patroni-mediawiki-YYYYMMDD_HHMMSS.sql.gz <pod>:/tmp/mediawiki.sql.gz
+# Add BCGov Helm repo if not already added
+helm repo add bcgov https://bcgov.github.io/helm-charts
+helm repo update
+
+# Install the backup chart
+helm install mediawiki-backup-prod bcgov/backup-storage \
+  --version 0.1.18 \
+  -f values-prod.yaml \
+  -n aebbdd-tools
+
+# Verify deployment
+oc get pods -n aebbdd-tools | grep mediawiki-backup-prod
 ```
 
-#### Gunzip files:
-```bash
-oc exec <pod> -- bash -c "gunzip -f /tmp/globals.sql.gz"
-oc exec <pod> -- bash -c "gunzip -f /tmp/mediawiki.sql.gz"
+### 4. Deploy File Backup CronJob
 
-```
-#### Restore globals and database:
 ```bash
-oc exec <pod> -- psql -U postgres -f /tmp/globals.sql
-oc exec <pod> -- psql -U postgres -d mediawiki -f /tmp/mediawiki.sql
-```
-### MediaWiki
+oc apply -f mediawiki-files-backup-cronjob.yaml
 
-#### Copy backup tars to MediaWiki pod:
-```bash
-oc cp mediawiki-html.tar.gz <pod>:/tmp/
-oc cp mediawiki-data.tar.gz <pod>:/tmp/
+# Verify CronJob
+oc get cronjob mediawiki-files-backup-prod -n aebbdd-tools
 ```
 
-#### Restore:
+### 5. Test Backups
+
+**Test Database Backup:**
 ```bash
-oc exec <pod> -- bash -c "tar xzf /tmp/mediawiki-html.tar.gz -C /var/www"
-oc exec <pod> -- bash -c "tar xzf /tmp/mediawiki-data.tar.gz -C /var/www"
+oc rsh deployment/mediawiki-backup-prod-backup-storage -n aebbdd-tools
+./backup.sh -s
+exit
 ```
 
-# TODO
-1. schedule
-1. delete backups after retention policy
-1. enable on local machine 
-1. discuss enabling on other local machine
+**Test File Backup:**
+```bash
+oc create job --from=cronjob/mediawiki-files-backup-prod test-file-backup -n aebbdd-tools
+oc logs -f job/test-file-backup -n aebbdd-tools
+oc delete job test-file-backup -n aebbdd-tools
+```
+
+## How to Restore
+
+### 1. Restore Database
+
+```bash
+# List available backups
+oc exec deployment/mediawiki-backup-prod-backup-storage -n aebbdd-tools -- ls -lh /backups/daily/
+
+# Restore from a specific backup file
+oc exec deployment/mediawiki-backup-prod-backup-storage -n aebbdd-tools -- bash -c \
+  "gunzip < /backups/daily/YYYY-MM-DD/patroni-isd-wiki-db-prod-app_TIMESTAMP.sql.gz | \
+   psql -h patroni-isd-wiki-db-prod -U postgres -d app"
+```
+
+### 2. Restore Files
+
+```bash
+# Get the MediaWiki pod name
+POD=$(oc get pod -n aebbdd-prod -l app.kubernetes.io/name=isd-wiki -o jsonpath='{.items[0].metadata.name}')
+
+# Restore /var/www/data
+oc exec deployment/mediawiki-backup-prod-backup-storage -n aebbdd-tools -- \
+  cat /backups/daily/YYYY-MM-DD/mediawiki-data-prod_TIMESTAMP.tar.gz | \
+  oc exec -n aebbdd-prod $POD -c mediawiki -i -- tar -xzf - -C /var/www/data
+
+# Restore /var/www/html
+oc exec deployment/mediawiki-backup-prod-backup-storage -n aebbdd-tools -- \
+  cat /backups/daily/YYYY-MM-DD/mediawiki-html-prod_TIMESTAMP.tar.gz | \
+  oc exec -n aebbdd-prod $POD -c mediawiki -i -- tar -xzf - -C /var/www/html
+```
+
+## Monitoring
+
+**Check backup status:**
+```bash
+# View database backup pod logs
+oc logs -f deployment/mediawiki-backup-prod-backup-storage -n aebbdd-tools
+
+# List all backups
+oc exec deployment/mediawiki-backup-prod-backup-storage -n aebbdd-tools -- ./backup.sh -l
+```
+
+**Check CronJob history:**
+```bash
+# View recent jobs
+oc get jobs -n aebbdd-tools | grep mediawiki-files-backup-prod
+
+# View logs from last run
+LAST_JOB=$(oc get jobs -n aebbdd-tools --sort-by=.metadata.creationTimestamp -o name | grep mediawiki-files-backup-prod | tail -1)
+oc logs $LAST_JOB -n aebbdd-tools
+```
+
+## Backup Schedule
+
+- **Database Backup**: 1:00 AM daily
+- **Database Verification**: 2:00 AM daily
+- **File Backup**: 1:35 AM daily
+
+## Storage Usage
+
+```bash
+# Check PVC usage
+oc exec deployment/mediawiki-backup-prod-backup-storage -n aebbdd-tools -- df -h /backups
+
+# Check backup sizes
+oc exec deployment/mediawiki-backup-prod-backup-storage -n aebbdd-tools -- du -sh /backups/daily/*
+```
+
+## Troubleshooting
+
+**Database backup fails with authentication error:**
+- Verify secret exists: `oc get secret patroni-isd-wiki-db-prod-secret -n aebbdd-tools`
+- Check password matches prod: Compare with `oc get secret patroni-instance -n aebbdd-prod`
+
+**Database backup fails with connection timeout:**
+- Verify network policy exists: `oc get networkpolicy allow-patroni-instance-backup-from-tools -n aebbdd-prod`
+- Test connectivity: `oc exec deployment/mediawiki-backup-prod-backup-storage -n aebbdd-tools -- nc -zv patroni-isd-wiki-db-prod 5432`
+
+**File backup fails to find pod:**
+- Check MediaWiki pod is running: `oc get pods -n aebbdd-prod -l app.kubernetes.io/name=isd-wiki`
+- Verify service account has permissions: `oc get rolebinding mediawiki-files-backup-prod -n aebbdd-prod`
