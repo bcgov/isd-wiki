@@ -1,0 +1,23 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-patroni-instance-backup-from-tools
+  namespace: aebbdd-prod
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: patroni-instance
+      app.kubernetes.io/name: patroni
+      cluster-name: patroni-instance
+      role: master
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 5432
+      from:
+        - namespaceSelector:
+            matchLabels:
+              name: aebbdd
+  policyTypes:
+    - Ingress

@@ -1,0 +1,9 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: patroni-isd-wiki-db-prod
+  namespace: aebbdd-tools
+spec:
+  type: ExternalName
+  externalName: patroni-instance.aebbdd-prod.svc.cluster.local
