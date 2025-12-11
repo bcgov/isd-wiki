@@ -2,28 +2,28 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: mediawiki-files-backup-prod
-  namespace: aebbdd-tools
+  name: <SA>
+  namespace: <NS>
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: mediawiki-files-backup-prod
-  namespace: aebbdd-prod
+  name: <SA>
+  namespace: <Pod NS>
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: edit
 subjects:
   - kind: ServiceAccount
-    name: mediawiki-files-backup-prod
-    namespace: aebbdd-tools
+    name: <SA>
+    namespace: <NS>
 ---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: mediawiki-files-backup-prod
-  namespace: aebbdd-tools
+  name: <SA>
+  namespace: <NS>
 spec:
   schedule: "35 1 * * *"  # Run at 1:35 AM (after DB backup at 1:00 AM)
   concurrencyPolicy: Forbid
@@ -33,11 +33,11 @@ spec:
     spec:
       template:
         spec:
-          serviceAccountName: mediawiki-files-backup-prod
+          serviceAccountName: <SA>
           restartPolicy: OnFailure
           containers:
             - name: backup
-              image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+              image: <OC Cli image>
               command:
                 - /bin/bash
                 - -c
@@ -51,17 +51,17 @@ spec:
                   mkdir -p /backups/daily/$DATE
 
                   # Get MediaWiki pod name
-                  POD=$(oc get pod -n aebbdd-prod -l app.kubernetes.io/name=isd-wiki -o jsonpath='{.items[0].metadata.name}')
+                  POD=$(oc get pod -n <Pod NS> -l app.kubernetes.io/name=<wiki pod> -o jsonpath='{.items[0].metadata.name}')
                   echo "Found MediaWiki pod: $POD"
 
                   # Backup mediawiki-data via tar streamed from pod
                   echo "Backing up /var/www/data..."
-                  oc exec -n aebbdd-prod $POD -c mediawiki -- tar -czf - -C /var/www/data . > /backups/daily/$DATE/mediawiki-data-prod_$TIMESTAMP.tar.gz
+                  oc exec -n <Pod NS> $POD -c mediawiki -- tar -czf - -C /var/www/data . > /backups/daily/$DATE/mediawiki-data-prod_$TIMESTAMP.tar.gz
                   echo "Data backup size: $(du -h /backups/daily/$DATE/mediawiki-data-prod_$TIMESTAMP.tar.gz | cut -f1)"
 
                   # Backup mediawiki-html via tar streamed from pod
                   echo "Backing up /var/www/html..."
-                  oc exec -n aebbdd-prod $POD -c mediawiki -- tar -czf - -C /var/www/html . > /backups/daily/$DATE/mediawiki-html-prod_$TIMESTAMP.tar.gz
+                  oc exec -n <Pod NS> $POD -c mediawiki -- tar -czf - -C /var/www/html . > /backups/daily/$DATE/mediawiki-html-prod_$TIMESTAMP.tar.gz
                   echo "HTML backup size: $(du -h /backups/daily/$DATE/mediawiki-html-prod_$TIMESTAMP.tar.gz | cut -f1)"
 
                   echo "Backup complete!"

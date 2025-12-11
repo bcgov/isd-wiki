@@ -1,5 +1,5 @@
 backupConfig: |
-  postgres=patroni-isd-wiki-db-prod:5432/app
+  postgres=<DB service:port/db>
   /mediawiki-data:dir
   /mediawiki-html:dir
 
@@ -10,9 +10,9 @@ backupConfig: |
   0 2 * * * default ./backup.sh -s -v all
 
 db:
-  passwordKey: superuser-password
-  secretName: patroni-isd-wiki-db-prod-secret
-  usernameKey: superuser-username
+  passwordKey: <DB secret PW key>
+  secretName: <DB Secret>
+  usernameKey: <DB secret User key>
 
 env:
   BACKUP_STRATEGY:
@@ -22,7 +22,7 @@ env:
   DATABASE_NAME:
     value: app
   DATABASE_SERVICE_NAME:
-    value: patroni-isd-wiki-db-prod
+    value: <DB Service>
   ENVIRONMENT_FRIENDLY_NAME:
     value: MediaWiki Backup (PROD)
   MONTHLY_BACKUPS:
@@ -45,17 +45,17 @@ persistence:
 
 # Mount MediaWiki PVCs from prod namespace
 volumes:
-  - name: mediawiki-data
+  - name: <PVC 1>
     persistentVolumeClaim:
-      claimName: isd-wiki-data-prod
-  - name: mediawiki-html
+      claimName: <PVC 1 claim>
+  - name: <PVC 2>
     persistentVolumeClaim:
-      claimName: isd-wiki-html-prod
+      claimName: <PVC 2 claim>
 
 volumeMounts:
-  - name: mediawiki-data
-    mountPath: /mediawiki-data
+  - name: <PVC 1>
+    mountPath: <PVC 1 mount>
     readOnly: true
-  - name: mediawiki-html
-    mountPath: /mediawiki-html
+  - name: <PVC 2>
+    mountPath: <PVC 2 mount>
     readOnly: true
