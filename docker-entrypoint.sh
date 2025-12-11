@@ -154,6 +154,13 @@ wfLoadExtension( 'CategoryTree' );
 # # Load PageForms
 wfLoadExtension( 'PageForms' );
 
+# --- Scribunto Extension ---
+wfLoadExtension( 'Scribunto' );
+
+# Use LuaSandbox (since it is already installed)
+$wgScribuntoDefaultEngine = 'luasandbox';
+# --- END OF CUSTOM SETTINGS ---
+
 # --- END OF CUSTOM SETTINGS ---
 EOF
 
