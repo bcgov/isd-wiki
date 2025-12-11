@@ -1,0 +1,61 @@
+backupConfig: |
+  postgres=<DB service:port/db>
+  /mediawiki-data:dir
+  /mediawiki-html:dir
+
+  # Database and file backup at 1 AM
+  0 1 * * * default ./backup.sh -s
+
+  # Database and file verification at 2 AM
+  0 2 * * * default ./backup.sh -s -v all
+
+db:
+  passwordKey: <DB secret PW key>
+  secretName: <DB Secret>
+  usernameKey: <DB secret User key>
+
+env:
+  BACKUP_STRATEGY:
+    value: rolling
+  DAILY_BACKUPS:
+    value: "12"
+  DATABASE_NAME:
+    value: app
+  DATABASE_SERVICE_NAME:
+    value: <DB Service>
+  ENVIRONMENT_FRIENDLY_NAME:
+    value: MediaWiki Backup (PROD)
+  MONTHLY_BACKUPS:
+    value: "2"
+  WEEKLY_BACKUPS:
+    value: "8"
+
+image:
+  repository: ghcr.io/bcgov/backup-container
+  tag: latest
+
+persistence:
+  backup:
+    size: 8Gi
+    storageAccessMode: ReadWriteMany
+    storageClassName: netapp-file-backup
+  verification:
+    size: 2Gi
+    storageClassName: netapp-file-standard
+
+# Mount MediaWiki PVCs from prod namespace
+volumes:
+  - name: <PVC 1>
+    persistentVolumeClaim:
+      claimName: <PVC 1 claim>
+  - name: <PVC 2>
+    persistentVolumeClaim:
+      claimName: <PVC 2 claim>
+
+volumeMounts:
+  - name: <PVC 1>
+    mountPath: <PVC 1 mount>
+    readOnly: true
+  - name: <PVC 2>
+    mountPath: <PVC 2 mount>
+    readOnly: true

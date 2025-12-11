@@ -1,0 +1,75 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: <SA>
+  namespace: <NS>
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: <SA>
+  namespace: <Pod NS>
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: edit
+subjects:
+  - kind: ServiceAccount
+    name: <SA>
+    namespace: <NS>
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: <SA>
+  namespace: <NS>
+spec:
+  schedule: "35 1 * * *"  # Run at 1:35 AM (after DB backup at 1:00 AM)
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: <SA>
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: <OC Cli image>
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -e
+                  echo "Starting MediaWiki PROD files backup..."
+                  DATE=$(date +%Y-%m-%d)
+                  TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
+
+                  # Create daily folder
+                  mkdir -p /backups/daily/$DATE
+
+                  # Get MediaWiki pod name
+                  POD=$(oc get pod -n <Pod NS> -l app.kubernetes.io/name=<wiki pod> -o jsonpath='{.items[0].metadata.name}')
+                  echo "Found MediaWiki pod: $POD"
+
+                  # Backup mediawiki-data via tar streamed from pod
+                  echo "Backing up /var/www/data..."
+                  oc exec -n <Pod NS> $POD -c mediawiki -- tar -czf - -C /var/www/data . > /backups/daily/$DATE/mediawiki-data-prod_$TIMESTAMP.tar.gz
+                  echo "Data backup size: $(du -h /backups/daily/$DATE/mediawiki-data-prod_$TIMESTAMP.tar.gz | cut -f1)"
+
+                  # Backup mediawiki-html via tar streamed from pod
+                  echo "Backing up /var/www/html..."
+                  oc exec -n <Pod NS> $POD -c mediawiki -- tar -czf - -C /var/www/html . > /backups/daily/$DATE/mediawiki-html-prod_$TIMESTAMP.tar.gz
+                  echo "HTML backup size: $(du -h /backups/daily/$DATE/mediawiki-html-prod_$TIMESTAMP.tar.gz | cut -f1)"
+
+                  echo "Backup complete!"
+                  ls -lh /backups/daily/$DATE/
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: mediawiki-backup-prod-backup-storage-backup-pvc

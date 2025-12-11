@@ -1,0 +1,20 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-patroni-instance-backup-from-tools
+  namespace: <POD NS>
+spec:
+  podSelector:
+    matchLabels:
+      <POD selector labels>
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: <port>
+      from:
+        - namespaceSelector:
+            matchLabels:
+              name: <NS>
+  policyTypes:
+    - Ingress
