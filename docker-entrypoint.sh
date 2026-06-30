@@ -161,6 +161,13 @@ wfLoadExtension( 'Scribunto' );
 $wgScribuntoDefaultEngine = 'luasandbox';
 # --- END OF CUSTOM SETTINGS ---
 
+# # Load EmbedVideo (embed YouTube/Vimeo/etc. videos in pages)
+wfLoadExtension( 'EmbedVideo' );
+# Local file-based video/audio handling needs ffmpeg, which this image
+# doesn't ship. We only need embedding of externally-hosted videos.
+\$wgEmbedVideoEnableVideoHandler = false;
+\$wgEmbedVideoEnableAudioHandler = false;
+
 # --- END OF CUSTOM SETTINGS ---
 EOF
 
@@ -172,6 +179,23 @@ else
     echo "LocalSettings.php found. This is an existing installation."
     echo "Running update.php to migrate the database schema."
     php maintenance/update.php
+
+    # === APPEND SETTINGS ADDED SINCE INITIAL INSTALL ===
+    # LocalSettings.php is created once and persisted on a volume, so settings
+    # added to the block above after a wiki's first install never reach it.
+    # Idempotently patch those in here, keyed on a marker already in the file.
+    if ! grep -q "wfLoadExtension( 'EmbedVideo' )" "$LOCALSETTINGS_FILE"; then
+        echo "Adding EmbedVideo extension to existing LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# # Load EmbedVideo (embed YouTube/Vimeo/etc. videos in pages)
+wfLoadExtension( 'EmbedVideo' );
+# Local file-based video/audio handling needs ffmpeg, which this image
+# doesn't ship. We only need embedding of externally-hosted videos.
+$wgEmbedVideoEnableVideoHandler = false;
+$wgEmbedVideoEnableAudioHandler = false;
+EOF
+    fi
 fi
 
 # Ensure images folder exists and has correct permissions.

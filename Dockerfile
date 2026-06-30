@@ -92,6 +92,19 @@ RUN set -eux; \
     cd extensions/PageForms && composer install --no-dev --no-interaction || true; \
     cd /var/www/html;
 
+# --- Install EmbedVideo (for embedding YouTube/Vimeo/etc. video in pages) ---
+# Not hosted on gerrit.wikimedia.org, so cloned separately and pinned to a
+# release tag (no REL1_44 branch exists yet upstream; v4.1.0 declares
+# "MediaWiki": ">= 1.43.0" so it is compatible with our 1.44 install).
+RUN set -eux; \
+    target_dir="extensions/EmbedVideo"; \
+    if [ -d "$target_dir" ]; then \
+        echo "Skipping EmbedVideo: already exists."; \
+    else \
+        git clone --depth 1 --branch v4.1.0 \
+          "https://github.com/StarCitizenWiki/mediawiki-extensions-EmbedVideo.git" "$target_dir"; \
+    fi;
+
 # --- OpenShift Specific Configuration for Non-Root Execution ---
 # The official MediaWiki image typically runs as 'www-data' (UID 33).
 # OpenShift runs containers with an arbitrary user ID, but ensures it has group write access
