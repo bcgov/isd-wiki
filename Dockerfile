@@ -105,6 +105,15 @@ RUN set -eux; \
           "https://github.com/StarCitizenWiki/mediawiki-extensions-EmbedVideo.git" "$target_dir"; \
     fi;
 
+# EmbedVideo's upstream SharePoint service only matches direct file links
+# ending in a file extension (e.g. ".../video.mp4"). Our SharePoint tenant's
+# "Embed" share action instead generates Stream player links in the form
+# ".../_layouts/15/embed.aspx?UniqueId=...", which don't end in an extension
+# and so are rejected outright. This overlay relaxes that regex to accept
+# any URL under /sites/ on a sharepoint.com host. Re-apply if EmbedVideo is
+# ever bumped past v4.1.0, since upstream may not have fixed this.
+COPY patches/EmbedVideo-SharePoint.php extensions/EmbedVideo/includes/EmbedService/SharePoint.php
+
 # --- OpenShift Specific Configuration for Non-Root Execution ---
 # The official MediaWiki image typically runs as 'www-data' (UID 33).
 # OpenShift runs containers with an arbitrary user ID, but ensures it has group write access
