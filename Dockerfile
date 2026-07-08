@@ -92,6 +92,17 @@ RUN set -eux; \
     cd extensions/PageForms && composer install --no-dev --no-interaction || true; \
     cd /var/www/html;
 
+# PageForms' getCategoriesForPage() (run on every page view, via a skin tab
+# hook) still queries the pre-normalization "cl_to" column on categorylinks.
+# Current MediaWiki core (1.46) normalizes category links through a
+# "linktarget" table keyed by cl_target_id, so cl_to no longer exists and
+# every page load 500s with a DBQueryError. This overlay rewrites that one
+# query to join against linktarget instead. (A second, non-blocking cl_to
+# reference remains in getAllPagesForCategory(), only hit by forms that use
+# "values from category" autocompletion - not patched here since it doesn't
+# affect normal page views.)
+COPY patches/PageForms-PF_ValuesUtils.php extensions/PageForms/includes/PF_ValuesUtils.php
+
 # --- Install EmbedVideo (for embedding YouTube/Vimeo/etc. video in pages) ---
 # Not hosted on gerrit.wikimedia.org, so cloned separately and pinned to a
 # release tag (no REL1_44 branch exists yet upstream; v4.1.0 declares
