@@ -127,7 +127,7 @@ wfLoadExtension( 'VisualEditor' );
 # $wgHiddenPrefs[] = 'visualeditor-enable-mw-nitro';
 
 # # Load SyntaxHighlight_GeSHi
-# # wfLoadExtension( 'SyntaxHighlight_GeSHi' );
+wfLoadExtension( 'SyntaxHighlight_GeSHi' );
 
 # # --- Environment and Paths ---
 # \$wgTmpDirectory = "/tmp";
@@ -147,6 +147,9 @@ wfLoadExtension( 'VEForAll' );
 
 # # Load TemplateData
 wfLoadExtension( 'TemplateData' );
+
+# Ensure VisualEditor works in Help namespace
+\$wgVisualEditorNamespaces[NS_HELP] = true;
 
 # # CategoryTree
 wfLoadExtension( 'CategoryTree' );
@@ -194,6 +197,24 @@ wfLoadExtension( 'EmbedVideo' );
 # doesn't ship. We only need embedding of externally-hosted videos.
 $wgEmbedVideoEnableVideoHandler = false;
 $wgEmbedVideoEnableAudioHandler = false;
+EOF
+    fi
+
+    if ! grep -q "wfLoadExtension( 'SyntaxHighlight_GeSHi' )" "$LOCALSETTINGS_FILE"; then
+        echo "Adding SyntaxHighlight_GeSHi extension to existing LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# # Load SyntaxHighlight_GeSHi
+wfLoadExtension( 'SyntaxHighlight_GeSHi' );
+EOF
+    fi
+
+    if ! grep -qF '$wgVisualEditorNamespaces[NS_HELP]' "$LOCALSETTINGS_FILE"; then
+        echo "Adding VisualEditor Help namespace setting to existing LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# Ensure VisualEditor works in Help namespace
+$wgVisualEditorNamespaces[NS_HELP] = true;
 EOF
     fi
 fi
