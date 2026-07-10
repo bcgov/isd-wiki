@@ -10,7 +10,7 @@ spec:
     - name: http-app
       protocol: TCP
       port: 80
-      targetPort: proxy-traffic
+      targetPort: http-app
     - name: https-app
       protocol: TCP
       port: 443
