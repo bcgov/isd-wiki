@@ -127,7 +127,7 @@ wfLoadExtension( 'VisualEditor' );
 # $wgHiddenPrefs[] = 'visualeditor-enable-mw-nitro';
 
 # # Load SyntaxHighlight_GeSHi
-# # wfLoadExtension( 'SyntaxHighlight_GeSHi' );
+wfLoadExtension( 'SyntaxHighlight_GeSHi' );
 
 # # --- Environment and Paths ---
 # \$wgTmpDirectory = "/tmp";
@@ -147,6 +147,9 @@ wfLoadExtension( 'VEForAll' );
 
 # # Load TemplateData
 wfLoadExtension( 'TemplateData' );
+
+# Ensure VisualEditor works in Help namespace
+\$wgVisualEditorNamespaces[NS_HELP] = true;
 
 # # CategoryTree
 wfLoadExtension( 'CategoryTree' );
