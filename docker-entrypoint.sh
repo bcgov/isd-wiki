@@ -173,6 +173,10 @@ wfLoadExtension( 'EmbedVideo' );
 
 # # Load Lingo (glossary term tooltips)
 wfLoadExtension( 'Lingo' );
+# Use the bolder WCAG-contrast underline style so glossary terms are
+# more obviously interactive (default style is a very subtle 1px dotted
+# underline that's easy to miss).
+\$wgexLingoWCAGStyle = true;
 
 # --- END OF CUSTOM SETTINGS ---
 EOF
@@ -227,6 +231,17 @@ EOF
 
 # # Load Lingo (glossary term tooltips)
 wfLoadExtension( 'Lingo' );
+EOF
+    fi
+
+    if ! grep -qF '$wgexLingoWCAGStyle' "$LOCALSETTINGS_FILE"; then
+        echo "Adding Lingo WCAG style setting to existing LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# Use the bolder WCAG-contrast underline style so glossary terms are
+# more obviously interactive (default style is a very subtle 1px dotted
+# underline that's easy to miss).
+$wgexLingoWCAGStyle = true;
 EOF
     fi
 fi
