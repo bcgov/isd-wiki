@@ -171,6 +171,9 @@ wfLoadExtension( 'EmbedVideo' );
 \$wgEmbedVideoEnableVideoHandler = false;
 \$wgEmbedVideoEnableAudioHandler = false;
 
+# # Load Lingo (glossary term tooltips)
+wfLoadExtension( 'Lingo' );
+
 # --- END OF CUSTOM SETTINGS ---
 EOF
 
@@ -215,6 +218,15 @@ EOF
 
 # Ensure VisualEditor works in Help namespace
 $wgVisualEditorNamespaces[NS_HELP] = true;
+EOF
+    fi
+
+    if ! grep -q "wfLoadExtension( 'Lingo' )" "$LOCALSETTINGS_FILE"; then
+        echo "Adding Lingo extension to existing LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# # Load Lingo (glossary term tooltips)
+wfLoadExtension( 'Lingo' );
 EOF
     fi
 fi

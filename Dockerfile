@@ -79,7 +79,7 @@ RUN curl -sS https://getcomposer.org/installer | php && \
 
 # --- Install MediaWiki Extensions ---
 RUN set -eux; \
-    extensions="PageForms CategoryTree TitleKey TemplateData VEForAll"; \
+    extensions="PageForms CategoryTree TitleKey TemplateData VEForAll Lingo"; \
     for ext in $extensions; do \
         target_dir="extensions/$ext"; \
         if [ -d "$target_dir" ]; then \
