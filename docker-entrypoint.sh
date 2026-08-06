@@ -161,7 +161,7 @@ wfLoadExtension( 'PageForms' );
 wfLoadExtension( 'Scribunto' );
 
 # Use LuaSandbox (since it is already installed)
-$wgScribuntoDefaultEngine = 'luasandbox';
+\$wgScribuntoDefaultEngine = 'luasandbox';
 # --- END OF CUSTOM SETTINGS ---
 
 # # Load EmbedVideo (embed YouTube/Vimeo/etc. videos in pages)
@@ -194,7 +194,18 @@ else
     # LocalSettings.php is created once and persisted on a volume, so settings
     # added to the block above after a wiki's first install never reach it.
     # Idempotently patch those in here, keyed on a marker already in the file.
-    if ! grep -q "wfLoadExtension( 'EmbedVideo' )" "$LOCALSETTINGS_FILE"; then
+    #
+    # A marker only counts as present if it appears on a line that is not
+    # commented out. A plain substring match also hits lines an operator has
+    # disabled by prefixing "#", which reads as "already applied" and skips
+    # the append on every future start, so the setting can never come back.
+    # (This is exactly how prod ended up stuck with SyntaxHighlight_GeSHi
+    # commented out and no way for the entrypoint to restore it.)
+    setting_active() {
+        grep -v '^[[:space:]]*#' "$LOCALSETTINGS_FILE" | grep -qF "$1"
+    }
+
+    if ! setting_active "wfLoadExtension( 'EmbedVideo' )"; then
         echo "Adding EmbedVideo extension to existing LocalSettings.php."
         cat << 'EOF' >> "$LOCALSETTINGS_FILE"
 
@@ -207,7 +218,7 @@ $wgEmbedVideoEnableAudioHandler = false;
 EOF
     fi
 
-    if ! grep -q "wfLoadExtension( 'SyntaxHighlight_GeSHi' )" "$LOCALSETTINGS_FILE"; then
+    if ! setting_active "wfLoadExtension( 'SyntaxHighlight_GeSHi' )"; then
         echo "Adding SyntaxHighlight_GeSHi extension to existing LocalSettings.php."
         cat << 'EOF' >> "$LOCALSETTINGS_FILE"
 
@@ -216,7 +227,22 @@ wfLoadExtension( 'SyntaxHighlight_GeSHi' );
 EOF
     fi
 
-    if ! grep -qF '$wgVisualEditorNamespaces[NS_HELP]' "$LOCALSETTINGS_FILE"; then
+    # Scribunto is in the fresh-install block above but was never back-filled
+    # here, so wikis installed before it was added (prod) have the extension
+    # present in the image but never loaded.
+    if ! setting_active "wfLoadExtension( 'Scribunto' )"; then
+        echo "Adding Scribunto extension to existing LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# --- Scribunto Extension ---
+wfLoadExtension( 'Scribunto' );
+
+# Use LuaSandbox (since it is already installed)
+$wgScribuntoDefaultEngine = 'luasandbox';
+EOF
+    fi
+
+    if ! setting_active '$wgVisualEditorNamespaces[NS_HELP]'; then
         echo "Adding VisualEditor Help namespace setting to existing LocalSettings.php."
         cat << 'EOF' >> "$LOCALSETTINGS_FILE"
 
@@ -225,7 +251,7 @@ $wgVisualEditorNamespaces[NS_HELP] = true;
 EOF
     fi
 
-    if ! grep -q "wfLoadExtension( 'Lingo' )" "$LOCALSETTINGS_FILE"; then
+    if ! setting_active "wfLoadExtension( 'Lingo' )"; then
         echo "Adding Lingo extension to existing LocalSettings.php."
         cat << 'EOF' >> "$LOCALSETTINGS_FILE"
 
@@ -234,7 +260,7 @@ wfLoadExtension( 'Lingo' );
 EOF
     fi
 
-    if ! grep -qF '$wgexLingoWCAGStyle' "$LOCALSETTINGS_FILE"; then
+    if ! setting_active '$wgexLingoWCAGStyle'; then
         echo "Adding Lingo WCAG style setting to existing LocalSettings.php."
         cat << 'EOF' >> "$LOCALSETTINGS_FILE"
 
