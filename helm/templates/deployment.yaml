@@ -54,7 +54,16 @@ spec:
          args:
           # The official MediaWiki image has the files in /var/www/html.
           # We copy them from that location into a different, temporary mount point for the volume.
-          - "cp -r /var/www/html/. /copy-dest/"
+          #
+          # cp merges without deleting, so a file that upstream removes or
+          # renames survives on the volume forever. PageForms REL1_46 renames
+          # every PF_*.php file (82 of them), which would otherwise leave a
+          # full stale copy of the extension alongside the new one on a volume
+          # that is already tight on space. Clearing the directory first keeps
+          # the extension tree matching the image. This is safe because
+          # PageForms is entirely image-provided - no uploads, LocalSettings.php
+          # or other volume-resident state lives under it.
+          - "rm -rf /copy-dest/extensions/PageForms && cp -r /var/www/html/. /copy-dest/"
          volumeMounts:
           - name: mediawiki-html-volume
             mountPath: /copy-dest

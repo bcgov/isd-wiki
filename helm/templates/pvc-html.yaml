@@ -9,4 +9,6 @@ spec:
     - ReadWriteMany
   resources:
     requests:
-      storage: 1Gi
+      # dig keeps this safe for the existing "helm upgrade --reuse-values"
+      # deploys, whose stored values predate the persistence block.
+      storage: {{ dig "persistence" "html" "size" "5Gi" .Values.mediawiki }}
