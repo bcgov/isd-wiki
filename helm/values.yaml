@@ -150,6 +150,24 @@ mediawiki:
     #   cpu: 100m
     #   memory: 128Mi
 
+  # Persistent volume sizing.
+  persistence:
+    html:
+      # The RWX volume holding the MediaWiki tree, LocalSettings.php and user
+      # uploads (images/). The initContainer copies the whole application into
+      # it on every pod start, so most of it is code rather than content -
+      # which leaves proportionally little headroom for uploads. At 1Gi prod
+      # was already 74% full with only ~265Mi free, so uploads were on track to
+      # fill it. netapp-file-standard has allowVolumeExpansion=true, so growing
+      # this is an online operation on the existing volume; note that CSI
+      # expansion is one-way, this value can be raised later but never lowered.
+      size: 5Gi
+    data:
+      # Mounted at /var/www/data. Currently unused - it is empty in both test
+      # and prod - and being ReadWriteOnce it pins every pod to a single node.
+      # Left as-is here; removing it belongs with the multi-replica work.
+      size: 2Gi
+
   autoscaling:
     enabled: false
     minReplicas: 1
