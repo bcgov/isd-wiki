@@ -150,6 +150,11 @@ RUN set -eux; \
     chmod 775 /var/www/html/extensions /var/www/html/skins; \
     chown -R www-data:www-data /var/www/html/extensions /var/www/html/skins;
 
+# --- php-fpm process manager tuning ---
+# Raises the pool off the stock pm.max_children = 5. Named to sort last in the
+# php-fpm.d/*.conf glob so it overrides www.conf. See the file for sizing notes.
+COPY php-fpm-pool.conf /usr/local/etc/php-fpm.d/zzz-isd-wiki.conf
+
 # --- Final Permissions and Volume ---
 RUN mkdir -p /var/www/data
 VOLUME /var/www/data
