@@ -112,6 +112,21 @@ RUN set -eux; \
 # includes/PFValuesUtils.php), so the COPY would have written a file at a path
 # nothing autoloads - a silent no-op that still builds cleanly.
 
+# Lingo's shouldParse() guards with "if ( !$parser->getOutput() ... )", a null
+# check written for the days when Parser::$mOutput was untyped. MediaWiki 1.46
+# made it a typed property, so reading it before a parse has begun raises
+# "Typed property MediaWiki\Parser\Parser::$mOutput must not be accessed before
+# initialization" instead of returning null - the guard meant to detect "no
+# output yet" is what throws. Every request reaching this hook with a Parser
+# that has not started parsing dies, which took out editing and previewing in
+# production while ordinary page views (which always parse) looked fine.
+#
+# This overlay catches the Error and returns false, preserving the original
+# intent: no parser output means nothing to annotate. Upstream master carries
+# the same bug as of 2026-08-11, so no version bump fixes it - re-check if
+# Lingo is ever bumped past REL1_46 / 3.3.0.
+COPY patches/Lingo-LingoParser.php extensions/Lingo/src/LingoParser.php
+
 # --- Install EmbedVideo (for embedding YouTube/Vimeo/etc. video in pages) ---
 # Not hosted on gerrit.wikimedia.org, so cloned separately and pinned to a
 # release tag (upstream publishes no REL branches; v4.1.0 is the current
