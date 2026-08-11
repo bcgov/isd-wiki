@@ -1,0 +1,109 @@
+{{/*
+One-shot init Job: the single writer of shared state for a release.
+
+Every startup action that mutates something shared lives here rather than in
+the application pods:
+
+  * copying the MediaWiki tree from the image onto the RWX volume
+  * update.php against the database
+  * the idempotent LocalSettings.php appends on that same volume
+
+Running those once per pod is safe with a single replica and unsafe with more
+than one. update.php has no internal locking - it records applied updates in
+updatelog, but two concurrent runs can both see an update as pending and both
+apply it - and the LocalSettings.php appends are plain file writes racing on a
+shared volume. As a pre-upgrade hook this runs to completion before any new
+pod starts, so there is exactly one writer no matter how many replicas follow.
+
+It is deliberately pre-upgrade only, not pre-install. Helm creates hook
+resources before ordinary ones, so at pre-install time the PVCs this mounts do
+not exist yet. Fresh installs are instead bootstrapped by the Deployment's
+guarded initContainer plus the entrypoint's fresh-install path, and should be
+performed at replicaCount 1.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "isd-wiki.fullname" . }}-init
+  labels:
+    {{- include "isd-wiki.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "0"
+    # Remove the previous Job just before creating this one, so a completed Job
+    # from the last upgrade does not block creation. Not hook-succeeded: keeping
+    # the finished Job around means its logs are still readable after a deploy,
+    # which is where update.php's output now lives.
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  # The work is idempotent, but a failure here means the database migration did
+  # not complete - retrying blindly tends to compound that. Fail fast and let
+  # the upgrade surface it.
+  backoffLimit: 0
+  template:
+    metadata:
+      # Deliberately NOT isd-wiki.selectorLabels. The Service and the
+      # PodDisruptionBudget both select on those, so reusing them here would
+      # put this Job's pod into the Service's endpoints - sending live traffic
+      # to a pod that runs no nginx and serves nothing - and would let the Job
+      # count towards the PDB's available replicas.
+      labels:
+        app.kubernetes.io/name: {{ include "isd-wiki.name" . }}-init
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+    spec:
+      restartPolicy: Never
+      {{- with .Values.mediawiki.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ .Values.global.serviceAccount.name }}
+      securityContext:
+        {{- toYaml .Values.mediawiki.podSecurityContext | nindent 8 }}
+      initContainers:
+        # Refresh the application tree on the volume before update.php runs, so
+        # the schema migration executes against the new code rather than the
+        # code still on the volume from the previous release.
+        - name: copy-mediawiki-files
+          image: "{{ .Values.mediawiki.image.repository }}:{{ .Values.mediawiki.image.tag }}"
+          imagePullPolicy: {{ .Values.mediawiki.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.mediawiki.securityContext | nindent 12 }}
+          command: ["/bin/sh", "-c"]
+          args:
+            # cp merges without deleting, so anything upstream removed or
+            # renamed would survive on the volume forever. PageForms REL1_46
+            # renames all 82 PF_*.php files, which would otherwise leave a full
+            # stale copy beside the new one.
+            - "rm -rf /copy-dest/extensions/PageForms && cp -r /var/www/html/. /copy-dest/"
+          volumeMounts:
+            - name: mediawiki-html-volume
+              mountPath: /copy-dest
+      containers:
+        - name: init
+          image: "{{ .Values.mediawiki.image.repository }}:{{ .Values.mediawiki.image.tag }}"
+          imagePullPolicy: {{ .Values.mediawiki.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.mediawiki.securityContext | nindent 12 }}
+          # "init" puts docker-entrypoint.sh in its one-shot mode: it performs
+          # the shared-state work and exits instead of starting php-fpm.
+          command: ["/docker-entrypoint.sh", "init"]
+          env:
+            {{- include "isd-wiki.mediawikiEnv" . | nindent 12 }}
+          volumeMounts:
+            - name: tmp-dir
+              mountPath: /tmp
+            - name: mediawiki-html-volume
+              mountPath: /var/www/html
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+      volumes:
+        - name: tmp-dir
+          emptyDir: {}
+        - name: mediawiki-html-volume
+          persistentVolumeClaim:
+            claimName: {{ include "isd-wiki.fullname" . }}-html
