@@ -138,17 +138,17 @@ mediawiki:
     #    hosts:
     #      - chart-example.local
 
+  # Resources for the mediawiki (php-fpm) container.
+  #
+  # Leaving this empty does NOT mean "unconstrained" - the deployment template
+  # substitutes sane defaults when it is empty (see the comment there). Set it
+  # here to override them wholesale.
+  #
+  # The defaults are requests cpu 100m / memory 768Mi and a 4Gi memory limit,
+  # sized against observed usage plus pm.max_children workers. Raising
+  # pm.max_children in php-fpm-pool.conf or PHP's memory_limit should be
+  # revisited together with these numbers.
   resources: {}
-    # We usually recommend not to specify default resources and to leave this as a conscious
-    # choice for the user. This also increases chances charts run on environments with little
-    # resources, such as Minikube. If the do want to specify resources, uncomment the following
-    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-    # limits:
-    #   cpu: 100m
-    #   memory: 128Mi
-    # requests:
-    #   cpu: 100m
-    #   memory: 128Mi
 
   # Persistent volume sizing.
   persistence:

@@ -188,8 +188,49 @@ spec:
               mountPath: /var/www/html
             - name: mediawiki-data
               mountPath: /var/www/data
+         # An explicitly-set mediawiki.resources always wins. An empty map falls
+         # back to the defaults below rather than rendering nothing.
+         #
+         # This matters because both environments were installed with
+         # "mediawiki.resources: {}" recorded in their stored values, and they
+         # are upgraded with --reuse-values. Stored values take precedence over
+         # chart defaults, so raising the default in values.yaml alone would be
+         # silently ignored on every existing release - it would only ever apply
+         # to a fresh install.
          resources:
-            {{- toYaml .Values.mediawiki.resources | nindent 16 }}
+            {{- if .Values.mediawiki.resources }}
+            {{- toYaml .Values.mediawiki.resources | nindent 12 }}
+            {{- else }}
+            requests:
+              # The namespace LimitRange injects 256Mi when nothing is set,
+              # which is roughly the container's idle footprint and well under
+              # what it actually uses serving traffic: ~200Mi baseline (opcache
+              # 128M + APCu 32M + master) plus up to pm.max_children (16) PHP
+              # workers. Requesting 768Mi makes the scheduler account for real
+              # usage, and keeps the pod from being an early eviction candidate
+              # under node memory pressure, where Burstable pods are ranked by
+              # how far usage exceeds requests.
+              #
+              # Sized so it still holds at replicaCount 2, the eventual target
+              # for surviving node drains. Per pod that is 832Mi (768 here plus
+              # nginx's 64Mi) and 150m; two pods put prod at 2560Mi of its 4Gi
+              # requests.memory quota and 460m of 2 cores, alongside the 3-node
+              # Patroni cluster. This is a per-pod working set, so the number
+              # does not change when the second replica arrives.
+              cpu: 100m
+              memory: 768Mi
+            limits:
+              # Same 4Gi the LimitRange already applies - stated explicitly so
+              # it is visible rather than inherited. Worst case is bounded by
+              # pm.max_children * PHP memory_limit (16 * 128M = 2Gi), so this
+              # leaves headroom without inviting an OOM kill. Raising PHP's
+              # memory_limit to 256M would put worst case at 4Gi, exactly at
+              # this ceiling - do not raise one without the other.
+              memory: 4Gi
+              # Deliberately no CPU limit. The container is CPU-light (~4m
+              # observed) and bursty under page renders; a low ceiling would
+              # throttle request latency for no memory-safety benefit.
+            {{- end }}
          readinessProbe:
             tcpSocket:
               port: 9000
