@@ -134,6 +134,23 @@ RUN set -eux; \
 # ever bumped past v4.1.0, since upstream may not have fixed this.
 COPY patches/EmbedVideo-SharePoint.php extensions/EmbedVideo/includes/EmbedService/SharePoint.php
 
+# EmbedVideo's RefreshEmbedVideoMetadata special page passes its permission to
+# the parent constructor as the $restriction argument, which MediaWiki 1.46
+# deprecated; every instantiation emits a deprecation warning. This overlay
+# moves the permission to a getRestriction() override, which is exactly what
+# UnlistedSpecialPage's own docblock prescribes ("override the method
+# getRestriction() instead"). Core calls getRestriction() from isRestricted(),
+# userCanExecute(), checkPermissions() and displayRestrictionError(), so the
+# permission check is unchanged - the argument is not simply dropped.
+#
+# Only visible once the PageForms REL1_46 bump landed: MWDebug::deprecatedMsg
+# keys its warning table on the message text, so with the debug toolbar off
+# only the *first* caller of a given deprecation ever emits. PageForms was
+# masking this one. Re-check for a newly unmasked warning whenever one of
+# these is fixed. Drop this overlay if EmbedVideo is bumped past v4.1.0 and
+# upstream has fixed it.
+COPY patches/EmbedVideo-SpecialRefreshEmbedVideoMetadata.php extensions/EmbedVideo/includes/Specials/SpecialRefreshEmbedVideoMetadata.php
+
 # --- OpenShift Specific Configuration for Non-Root Execution ---
 # The official MediaWiki image typically runs as 'www-data' (UID 33).
 # OpenShift runs containers with an arbitrary user ID, but ensures it has group write access
