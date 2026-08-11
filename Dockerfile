@@ -1,6 +1,14 @@
-# Use the official MediaWiki FPM stable image based on Alpine.
+# Use the official MediaWiki FPM image based on Alpine.
 # This image is designed to run non-root and is suitable for OpenShift.
-FROM mediawiki:stable-fpm-alpine
+#
+# Pinned to the 1.46 series rather than the floating "stable" tag. "stable"
+# silently moved this image from MediaWiki 1.44 to 1.46 while the extensions
+# below stayed pinned to REL1_44, which is what produced the deprecation
+# warnings from PageForms' special pages. The 1.46 tag still tracks patch
+# releases (1.46.x), so security fixes arrive without jumping a minor version
+# out from under the extension pins. Bump this and the REL branch below
+# together.
+FROM mediawiki:1.46-fpm-alpine
 
 # --- System dependencies ---
 # Add necessary system packages not included in the base image,
@@ -65,9 +73,9 @@ RUN set -eux; \
 
 # --- MediaWiki Version (for extension compatibility) ---
 # The base image already contains MediaWiki core. These ENVs are for extension logic.
-ENV MEDIAWIKI_MAJOR_VERSION=1.44
-ENV MEDIAWIKI_VERSION=1.44.0
-ENV MEDIAWIKI_VERSION_STR=1_44
+ENV MEDIAWIKI_MAJOR_VERSION=1.46
+ENV MEDIAWIKI_VERSION=1.46.0
+ENV MEDIAWIKI_VERSION_STR=1_46
 
 # --- Install Composer ---
 # The official image already has /var/www/html/extensions.
@@ -79,18 +87,69 @@ RUN curl -sS https://getcomposer.org/installer | php && \
 
 # --- Install MediaWiki Extensions ---
 RUN set -eux; \
-    extensions="PageForms CategoryTree TitleKey TemplateData VEForAll"; \
+    extensions="PageForms CategoryTree TitleKey TemplateData VEForAll Lingo"; \
     for ext in $extensions; do \
         target_dir="extensions/$ext"; \
         if [ -d "$target_dir" ]; then \
             echo "Skipping $ext: already exists."; \
         else \
-            git clone --depth 1 --branch REL1_44 \
+            git clone --depth 1 --branch REL1_46 \
               "https://gerrit.wikimedia.org/r/mediawiki/extensions/$ext" "$target_dir"; \
         fi; \
     done; \
     cd extensions/PageForms && composer install --no-dev --no-interaction || true; \
     cd /var/www/html;
+
+# NOTE: the former patches/PageForms-PF_ValuesUtils.php overlay is gone as of
+# the REL1_46 bump. It existed because PageForms' getCategoriesForPage() queried
+# the pre-normalization "cl_to" column on categorylinks, which MediaWiki 1.46
+# replaced with a "linktarget" join keyed by cl_target_id. REL1_46 handles this
+# upstream by probing $db->fieldExists( 'categorylinks', 'cl_to' ) and choosing
+# the query shape at runtime, so the overlay is redundant.
+#
+# Keeping it would have been actively harmful rather than merely redundant:
+# REL1_46 renames every PF_*.php file (includes/PF_ValuesUtils.php is now
+# includes/PFValuesUtils.php), so the COPY would have written a file at a path
+# nothing autoloads - a silent no-op that still builds cleanly.
+
+# --- Install EmbedVideo (for embedding YouTube/Vimeo/etc. video in pages) ---
+# Not hosted on gerrit.wikimedia.org, so cloned separately and pinned to a
+# release tag (upstream publishes no REL branches; v4.1.0 is the current
+# release and declares "MediaWiki": ">= 1.43.0", so it covers our 1.46 core).
+RUN set -eux; \
+    target_dir="extensions/EmbedVideo"; \
+    if [ -d "$target_dir" ]; then \
+        echo "Skipping EmbedVideo: already exists."; \
+    else \
+        git clone --depth 1 --branch v4.1.0 \
+          "https://github.com/StarCitizenWiki/mediawiki-extensions-EmbedVideo.git" "$target_dir"; \
+    fi;
+
+# EmbedVideo's upstream SharePoint service only matches direct file links
+# ending in a file extension (e.g. ".../video.mp4"). Our SharePoint tenant's
+# "Embed" share action instead generates Stream player links in the form
+# ".../_layouts/15/embed.aspx?UniqueId=...", which don't end in an extension
+# and so are rejected outright. This overlay relaxes that regex to accept
+# any URL under /sites/ on a sharepoint.com host. Re-apply if EmbedVideo is
+# ever bumped past v4.1.0, since upstream may not have fixed this.
+COPY patches/EmbedVideo-SharePoint.php extensions/EmbedVideo/includes/EmbedService/SharePoint.php
+
+# EmbedVideo's RefreshEmbedVideoMetadata special page passes its permission to
+# the parent constructor as the $restriction argument, which MediaWiki 1.46
+# deprecated; every instantiation emits a deprecation warning. This overlay
+# moves the permission to a getRestriction() override, which is exactly what
+# UnlistedSpecialPage's own docblock prescribes ("override the method
+# getRestriction() instead"). Core calls getRestriction() from isRestricted(),
+# userCanExecute(), checkPermissions() and displayRestrictionError(), so the
+# permission check is unchanged - the argument is not simply dropped.
+#
+# Only visible once the PageForms REL1_46 bump landed: MWDebug::deprecatedMsg
+# keys its warning table on the message text, so with the debug toolbar off
+# only the *first* caller of a given deprecation ever emits. PageForms was
+# masking this one. Re-check for a newly unmasked warning whenever one of
+# these is fixed. Drop this overlay if EmbedVideo is bumped past v4.1.0 and
+# upstream has fixed it.
+COPY patches/EmbedVideo-SpecialRefreshEmbedVideoMetadata.php extensions/EmbedVideo/includes/Specials/SpecialRefreshEmbedVideoMetadata.php
 
 # --- OpenShift Specific Configuration for Non-Root Execution ---
 # The official MediaWiki image typically runs as 'www-data' (UID 33).
@@ -107,6 +166,11 @@ RUN set -eux; \
     mkdir -p /var/www/html/skins; \
     chmod 775 /var/www/html/extensions /var/www/html/skins; \
     chown -R www-data:www-data /var/www/html/extensions /var/www/html/skins;
+
+# --- php-fpm process manager tuning ---
+# Raises the pool off the stock pm.max_children = 5. Named to sort last in the
+# php-fpm.d/*.conf glob so it overrides www.conf. See the file for sizing notes.
+COPY php-fpm-pool.conf /usr/local/etc/php-fpm.d/zzz-isd-wiki.conf
 
 # --- Final Permissions and Volume ---
 RUN mkdir -p /var/www/data

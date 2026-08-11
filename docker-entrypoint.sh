@@ -127,7 +127,7 @@ wfLoadExtension( 'VisualEditor' );
 # $wgHiddenPrefs[] = 'visualeditor-enable-mw-nitro';
 
 # # Load SyntaxHighlight_GeSHi
-# # wfLoadExtension( 'SyntaxHighlight_GeSHi' );
+wfLoadExtension( 'SyntaxHighlight_GeSHi' );
 
 # # --- Environment and Paths ---
 # \$wgTmpDirectory = "/tmp";
@@ -148,11 +148,35 @@ wfLoadExtension( 'VEForAll' );
 # # Load TemplateData
 wfLoadExtension( 'TemplateData' );
 
+# Ensure VisualEditor works in Help namespace
+\$wgVisualEditorNamespaces[NS_HELP] = true;
+
 # # CategoryTree
 wfLoadExtension( 'CategoryTree' );
 
 # # Load PageForms
 wfLoadExtension( 'PageForms' );
+
+# --- Scribunto Extension ---
+wfLoadExtension( 'Scribunto' );
+
+# Use LuaSandbox (since it is already installed)
+\$wgScribuntoDefaultEngine = 'luasandbox';
+# --- END OF CUSTOM SETTINGS ---
+
+# # Load EmbedVideo (embed YouTube/Vimeo/etc. videos in pages)
+wfLoadExtension( 'EmbedVideo' );
+# Local file-based video/audio handling needs ffmpeg, which this image
+# doesn't ship. We only need embedding of externally-hosted videos.
+\$wgEmbedVideoEnableVideoHandler = false;
+\$wgEmbedVideoEnableAudioHandler = false;
+
+# # Load Lingo (glossary term tooltips)
+wfLoadExtension( 'Lingo' );
+# Use the bolder WCAG-contrast underline style so glossary terms are
+# more obviously interactive (default style is a very subtle 1px dotted
+# underline that's easy to miss).
+\$wgexLingoWCAGStyle = true;
 
 # --- END OF CUSTOM SETTINGS ---
 EOF
@@ -165,6 +189,87 @@ else
     echo "LocalSettings.php found. This is an existing installation."
     echo "Running update.php to migrate the database schema."
     php maintenance/update.php
+
+    # === APPEND SETTINGS ADDED SINCE INITIAL INSTALL ===
+    # LocalSettings.php is created once and persisted on a volume, so settings
+    # added to the block above after a wiki's first install never reach it.
+    # Idempotently patch those in here, keyed on a marker already in the file.
+    #
+    # A marker only counts as present if it appears on a line that is not
+    # commented out. A plain substring match also hits lines an operator has
+    # disabled by prefixing "#", which reads as "already applied" and skips
+    # the append on every future start, so the setting can never come back.
+    # (This is exactly how prod ended up stuck with SyntaxHighlight_GeSHi
+    # commented out and no way for the entrypoint to restore it.)
+    setting_active() {
+        grep -v '^[[:space:]]*#' "$LOCALSETTINGS_FILE" | grep -qF "$1"
+    }
+
+    if ! setting_active "wfLoadExtension( 'EmbedVideo' )"; then
+        echo "Adding EmbedVideo extension to existing LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# # Load EmbedVideo (embed YouTube/Vimeo/etc. videos in pages)
+wfLoadExtension( 'EmbedVideo' );
+# Local file-based video/audio handling needs ffmpeg, which this image
+# doesn't ship. We only need embedding of externally-hosted videos.
+$wgEmbedVideoEnableVideoHandler = false;
+$wgEmbedVideoEnableAudioHandler = false;
+EOF
+    fi
+
+    if ! setting_active "wfLoadExtension( 'SyntaxHighlight_GeSHi' )"; then
+        echo "Adding SyntaxHighlight_GeSHi extension to existing LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# # Load SyntaxHighlight_GeSHi
+wfLoadExtension( 'SyntaxHighlight_GeSHi' );
+EOF
+    fi
+
+    # Scribunto is in the fresh-install block above but was never back-filled
+    # here, so wikis installed before it was added (prod) have the extension
+    # present in the image but never loaded.
+    if ! setting_active "wfLoadExtension( 'Scribunto' )"; then
+        echo "Adding Scribunto extension to existing LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# --- Scribunto Extension ---
+wfLoadExtension( 'Scribunto' );
+
+# Use LuaSandbox (since it is already installed)
+$wgScribuntoDefaultEngine = 'luasandbox';
+EOF
+    fi
+
+    if ! setting_active '$wgVisualEditorNamespaces[NS_HELP]'; then
+        echo "Adding VisualEditor Help namespace setting to existing LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# Ensure VisualEditor works in Help namespace
+$wgVisualEditorNamespaces[NS_HELP] = true;
+EOF
+    fi
+
+    if ! setting_active "wfLoadExtension( 'Lingo' )"; then
+        echo "Adding Lingo extension to existing LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# # Load Lingo (glossary term tooltips)
+wfLoadExtension( 'Lingo' );
+EOF
+    fi
+
+    if ! setting_active '$wgexLingoWCAGStyle'; then
+        echo "Adding Lingo WCAG style setting to existing LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# Use the bolder WCAG-contrast underline style so glossary terms are
+# more obviously interactive (default style is a very subtle 1px dotted
+# underline that's easy to miss).
+$wgexLingoWCAGStyle = true;
+EOF
+    fi
 fi
 
 # Ensure images folder exists and has correct permissions.

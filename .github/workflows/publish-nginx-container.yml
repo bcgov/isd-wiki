@@ -8,6 +8,13 @@ on:
       - main # Trigger on pushes to the main branch
     tags:
       - 'v*.*.*' # Trigger on new tags like v1.0.0, v1.0.1, etc.
+    paths:
+      # The proxy build context is ./proxy, so only changes in there can
+      # affect the image. Without this filter any unrelated merge to main
+      # republishes :latest, which both environments track by tag, so a
+      # rebuilt base image lands in prod on the next pod reschedule.
+      - 'proxy/**'
+      - '.github/workflows/publish-nginx-container.yml'
   workflow_dispatch: # Allows manual triggering from the GitHub UI
 
 env:

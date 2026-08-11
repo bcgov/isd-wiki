@@ -3,7 +3,7 @@ name: Publish MediaWiki Helm Chart to GHCR
 on:
   push:
     branches:
-      - main # Or your default branch like 'master' or 'develop'
+      - test # Or your default branch like 'master' or 'develop'
     paths:
       # Adjust these paths to your actual chart location and workflow file
       - 'helm/**'
