@@ -7,10 +7,18 @@ metadata:
 spec:
   type: {{ .Values.mediawiki.service.type }}
   ports:
+    # Kong routes production traffic to isd-wiki.<ns>.svc:80, so this mapping
+    # is the site's front door. It must point at a port nginx actually listens
+    # on: the nginx container serves plain HTTP on 8080 (http-app) and nothing
+    # binds 443. Targeting proxy-traffic (443) sends every request to a closed
+    # port, which surfaces as a Kong 502 with no traffic reaching the pod at
+    # all - it caused a prod outage on 2026-08-11, when a helm upgrade
+    # re-applied this template over a hand-patched Service that had corrected
+    # it in-cluster.
     - name: http-app
       protocol: TCP
       port: 80
-      targetPort: proxy-traffic
+      targetPort: http-app
     - name: https-app
       protocol: TCP
       port: 443
