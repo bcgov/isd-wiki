@@ -15,7 +15,7 @@ apply it - and the LocalSettings.php appends are plain file writes racing on a
 shared volume. As a pre-upgrade hook this runs to completion before any new
 pod starts, so there is exactly one writer no matter how many replicas follow.
 
-It is deliberately pre-upgrade only, not pre-install. Helm creates hook
+It runs on upgrade and rollback, but deliberately not on install. Helm creates hook
 resources before ordinary ones, so at pre-install time the PVCs this mounts do
 not exist yet. Fresh installs are instead bootstrapped by the Deployment's
 guarded initContainer plus the entrypoint's fresh-install path, and should be
@@ -28,7 +28,13 @@ metadata:
   labels:
     {{- include "isd-wiki.labels" . | nindent 4 }}
   annotations:
-    "helm.sh/hook": pre-upgrade
+    # pre-rollback matters as much as pre-upgrade. The Deployment's
+    # initContainer now only copies into an empty volume, so nothing else puts
+    # application files there. Without this, "helm rollback" would leave the
+    # newer release's code sitting on the volume while the pods run the older
+    # image - and since the code is served from the volume, the rollback would
+    # not actually roll anything back.
+    "helm.sh/hook": pre-upgrade,pre-rollback
     "helm.sh/hook-weight": "0"
     # Remove the previous Job just before creating this one, so a completed Job
     # from the last upgrade does not block creation. Not hook-succeeded: keeping

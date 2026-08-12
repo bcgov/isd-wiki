@@ -308,6 +308,33 @@ EOF
 $wgSessionCacheType = CACHE_DB;
 EOF
     fi
+
+    # The main cache must be shared for the same reason sessions must be.
+    # install.php writes $wgMainCacheType = CACHE_ACCEL, which is APCu - memory
+    # local to a single php-fpm pod. MediaWiki uses this cache for WANObjectCache
+    # purges and tombstones, rate limit counters, the message cache and similar,
+    # all of which assume every application server sees the same store. With two
+    # replicas and APCu, an edit served by one pod does not invalidate the other
+    # pod's copy, so users get stale content depending on which pod they land on,
+    # and rate limits are counted per pod.
+    #
+    # CACHE_DB uses the objectcache table, which already exists. It is slower
+    # than APCu but correct across replicas, and this wiki is small. Redis or
+    # memcached would be the faster option - the php extensions for both are
+    # already in the image - but that means running another service.
+    #
+    # Appending re-assigns the variable; the later assignment in LocalSettings.php
+    # wins. The guard therefore has to match the value, not just the name, since
+    # $wgMainCacheType is always present from the original install.
+    if ! setting_active '$wgMainCacheType = CACHE_DB'; then
+        echo "Switching main cache to shared database storage in LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# Shared across replicas; overrides the CACHE_ACCEL (APCu, per-pod) default
+# written by install.php.
+$wgMainCacheType = CACHE_DB;
+EOF
+    fi
 else
     echo "Existing installation. Startup mutations run in the init Job, not here."
 fi
