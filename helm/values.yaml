@@ -163,9 +163,10 @@ mediawiki:
       # expansion is one-way, this value can be raised later but never lowered.
       size: 5Gi
     data:
-      # Mounted at /var/www/data. Currently unused - it is empty in both test
-      # and prod - and being ReadWriteOnce it pins every pod to a single node.
-      # Left as-is here; removing it belongs with the multi-replica work.
+      # No longer mounted by the Deployment. It is empty in both environments,
+      # and being ReadWriteOnce it prevented a second replica from scheduling
+      # on another node. The claim is kept rather than deleted so no data can
+      # be lost by removing it; only the mount is gone.
       size: 2Gi
 
   autoscaling:

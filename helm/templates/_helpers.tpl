@@ -60,3 +60,59 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Environment shared by the mediawiki container and the init Job.
+
+Both run the same image and the same docker-entrypoint.sh, so they need an
+identical view of the database and site configuration. Defining it once keeps
+the Job from silently drifting away from the Deployment - a Job pointed at the
+wrong database would run update.php against it.
+*/}}
+{{- define "isd-wiki.mediawikiEnv" -}}
+- name: MEDIAWIKI_DB_TYPE
+  value: {{ .Values.mediawiki.database.type | quote }}
+- name: MEDIAWIKI_DB_HOST
+  value: {{ .Values.mediawiki.database.host | default (printf "%s-mysql" (include "isd-wiki.fullname" .)) | quote }}
+- name: MEDIAWIKI_DB_PORT
+  value: {{ .Values.mediawiki.database.port | default 5432 | quote }}
+- name: MEDIAWIKI_DB_NAME
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.mediawiki.database.secretName | quote }}
+      key: app-db-name
+- name: MEDIAWIKI_DB_USER
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.mediawiki.database.secretName | quote }}
+      key: app-db-username
+- name: MEDIAWIKI_DB_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.mediawiki.database.secretName | quote }}
+      key: app-db-password
+- name: MEDIAWIKI_SITE_NAME
+  value: {{ .Values.mediawiki.siteName | quote }}
+- name: MEDIAWIKI_SITE_SERVER
+  value: {{ .Values.mediawiki.siteServer | quote }}
+- name: MEDIAWIKI_ADMIN_USER
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "isd-wiki.fullname" . }}-credentials
+      key: admin-user
+- name: MEDIAWIKI_ADMIN_PASS
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "isd-wiki.fullname" . }}-credentials
+      key: admin-password
+- name: MEDIAWIKI_SMTP_HOST
+  value: {{ .Values.mediawiki.smtp.host | quote }}
+- name: MEDIAWIKI_SMTP_ID_HOST
+  value: {{ .Values.mediawiki.smtp.idHost | quote }}
+- name: MEDIAWIKI_SMTP_LOCALHOST
+  value: {{ .Values.mediawiki.smtp.localhost | quote }}
+- name: MEDIAWIKI_SMTP_PORT
+  value: {{ .Values.mediawiki.smtp.port | quote }}
+- name: MEDIAWIKI_SMTP_AUTH
+  value: {{ .Values.mediawiki.smtp.auth | quote }}
+{{- end }}

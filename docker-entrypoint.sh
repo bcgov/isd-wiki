@@ -4,6 +4,27 @@ set -eo pipefail
 # This script is designed to handle both fresh installs and upgrades
 # for a MediaWiki application in an OpenShift/Kubernetes environment.
 
+# Two modes, because startup work that mutates shared state cannot run once
+# per pod when there is more than one replica:
+#
+#   init   - run by the Helm pre-upgrade hook Job, exactly once per release.
+#            Performs every mutation of shared state: update.php against the
+#            database, and the idempotent LocalSettings.php appends on the
+#            shared RWX volume. Exits when finished; never starts php-fpm.
+#   serve  - the default, used by the application pods. Waits for the database
+#            and starts php-fpm. Touches no shared state on an existing
+#            install, so any number of replicas can start concurrently.
+#
+# update.php has no internal locking: it records applied updates in the
+# updatelog table, but two concurrent runs can both see an update as pending
+# and both apply it. The LocalSettings.php appends have the same problem on
+# the shared volume. Hence one writer, not one per pod.
+MODE="serve"
+if [ "$1" = "init" ]; then
+    MODE="init"
+    shift
+fi
+
 # The first argument is a command to run, for example "php-fpm".
 cmd="$@"
 
@@ -185,7 +206,7 @@ echo "Appended custom settings to LocalSettings.php."
 
     fi
 
-else
+elif [ "$MODE" = "init" ]; then
     echo "LocalSettings.php found. This is an existing installation."
     echo "Running update.php to migrate the database schema."
     php maintenance/update.php
@@ -270,11 +291,63 @@ EOF
 $wgexLingoWCAGStyle = true;
 EOF
     fi
+
+    # Sessions must be shared across replicas. $wgMainCacheType is CACHE_ACCEL
+    # (APCu), which lives in one pod's memory, and $wgSessionCacheType inherits
+    # from it when unset - so with more than one replica a user's session only
+    # exists on whichever pod happened to create it, and they appear randomly
+    # logged out as requests land elsewhere. CACHE_DB keeps sessions in the
+    # objectcache table, shared by every pod, with no extra infrastructure to
+    # run. Applying this invalidates existing sessions once, so everyone signs
+    # in again on the deploy that introduces it.
+    if ! setting_active '$wgSessionCacheType'; then
+        echo "Adding shared session storage to existing LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# Store sessions in the database so they are shared across replicas.
+$wgSessionCacheType = CACHE_DB;
+EOF
+    fi
+
+    # The main cache must be shared for the same reason sessions must be.
+    # install.php writes $wgMainCacheType = CACHE_ACCEL, which is APCu - memory
+    # local to a single php-fpm pod. MediaWiki uses this cache for WANObjectCache
+    # purges and tombstones, rate limit counters, the message cache and similar,
+    # all of which assume every application server sees the same store. With two
+    # replicas and APCu, an edit served by one pod does not invalidate the other
+    # pod's copy, so users get stale content depending on which pod they land on,
+    # and rate limits are counted per pod.
+    #
+    # CACHE_DB uses the objectcache table, which already exists. It is slower
+    # than APCu but correct across replicas, and this wiki is small. Redis or
+    # memcached would be the faster option - the php extensions for both are
+    # already in the image - but that means running another service.
+    #
+    # Appending re-assigns the variable; the later assignment in LocalSettings.php
+    # wins. The guard therefore has to match the value, not just the name, since
+    # $wgMainCacheType is always present from the original install.
+    if ! setting_active '$wgMainCacheType = CACHE_DB'; then
+        echo "Switching main cache to shared database storage in LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# Shared across replicas; overrides the CACHE_ACCEL (APCu, per-pod) default
+# written by install.php.
+$wgMainCacheType = CACHE_DB;
+EOF
+    fi
+else
+    echo "Existing installation. Startup mutations run in the init Job, not here."
 fi
 
 # Ensure images folder exists and has correct permissions.
 if [ ! -d "images" ]; then
     mkdir -p images
+fi
+
+# The init Job's work is done; it must not become a php-fpm process.
+if [ "$MODE" = "init" ]; then
+    echo "Init complete."
+    exit 0
 fi
 
 # Execute the main container command, e.g., php-fpm.

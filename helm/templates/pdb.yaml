@@ -1,0 +1,32 @@
+{{/*
+Only meaningful above one replica, which is why it is guarded.
+
+On a single-replica Deployment a PDB has no useful setting: minAvailable 1
+(equivalently maxUnavailable 0) means zero allowed disruptions, which blocks
+node drains and cluster upgrades outright, and minAvailable 0 protects nothing.
+The namespace already demonstrates the first failure mode - the unrelated
+isd-knowledge-portal-dokuwiki PDB sits at 0 allowed disruptions against a
+Deployment scaled to 0.
+
+At two or more replicas minAvailable 1 is exactly right: a drain may take one
+pod at a time and must wait for its replacement to become Ready, so the site
+stays up. Paired with the pod anti-affinity in the Deployment, which keeps the
+replicas on separate nodes, that is what makes a node drain invisible to users.
+*/}}
+{{- $replicas := int .Values.mediawiki.replicaCount }}
+{{- if .Values.mediawiki.autoscaling.enabled }}
+{{- $replicas = int .Values.mediawiki.autoscaling.minReplicas }}
+{{- end }}
+{{- if gt $replicas 1 }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "isd-wiki.fullname" . }}
+  labels:
+    {{- include "isd-wiki.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "isd-wiki.selectorLabels" . | nindent 6 }}
+{{- end }}

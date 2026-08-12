@@ -52,18 +52,22 @@ spec:
          image: "{{ .Values.mediawiki.image.repository }}:{{ .Values.mediawiki.image.tag }}"
          command: ["/bin/sh", "-c"]
          args:
-          # The official MediaWiki image has the files in /var/www/html.
-          # We copy them from that location into a different, temporary mount point for the volume.
+          # Bootstrap only. Keeping the application tree up to date is the init
+          # Job's job now; this exists solely so a fresh install has files to
+          # run before any Job has ever executed (the pre-upgrade hook does not
+          # fire on helm install).
           #
-          # cp merges without deleting, so a file that upstream removes or
-          # renames survives on the volume forever. PageForms REL1_46 renames
-          # every PF_*.php file (82 of them), which would otherwise leave a
-          # full stale copy of the extension alongside the new one on a volume
-          # that is already tight on space. Clearing the directory first keeps
-          # the extension tree matching the image. This is safe because
-          # PageForms is entirely image-provided - no uploads, LocalSettings.php
-          # or other volume-resident state lives under it.
-          - "rm -rf /copy-dest/extensions/PageForms && cp -r /var/www/html/. /copy-dest/"
+          # The guard matters once there is more than one replica: an
+          # unconditional copy would have every starting pod rewrite the shared
+          # tree underneath the pods already serving from it. Populated volume
+          # means the Job has handled it, so do nothing.
+          - |
+            if [ ! -f /copy-dest/index.php ]; then
+              echo "Volume is empty; bootstrapping MediaWiki files for a fresh install."
+              cp -r /var/www/html/. /copy-dest/
+            else
+              echo "Volume already populated; the init Job owns application file updates."
+            fi
          volumeMounts:
           - name: mediawiki-html-volume
             mountPath: /copy-dest
@@ -136,58 +140,12 @@ spec:
          #  command: ["/usr/local/sbin/php-fpm", "-F"]
          args: ["php-fpm", "-F"]
          env:
-            - name: MEDIAWIKI_DB_TYPE
-              value: {{ .Values.mediawiki.database.type | quote }}
-            - name: MEDIAWIKI_DB_HOST
-              value: {{ .Values.mediawiki.database.host | default (printf "%s-mysql" (include "isd-wiki.fullname" .)) | quote }}
-            - name: MEDIAWIKI_DB_PORT
-              value: {{ .Values.mediawiki.database.port | default 5432 | quote }}
-            - name: MEDIAWIKI_DB_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.mediawiki.database.secretName | quote }}
-                  key: app-db-name
-            - name: MEDIAWIKI_DB_USER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.mediawiki.database.secretName | quote }}
-                  key: app-db-username
-            - name: MEDIAWIKI_DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.mediawiki.database.secretName | quote }}
-                  key: app-db-password
-            - name: MEDIAWIKI_SITE_NAME
-              value: {{ .Values.mediawiki.siteName | quote }}
-            - name: MEDIAWIKI_SITE_SERVER
-              value: {{ .Values.mediawiki.siteServer | quote }}
-            - name: MEDIAWIKI_ADMIN_USER
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "isd-wiki.fullname" . }}-credentials
-                  key: admin-user
-            - name: MEDIAWIKI_ADMIN_PASS
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "isd-wiki.fullname" . }}-credentials
-                  key: admin-password
-            - name: MEDIAWIKI_SMTP_HOST
-              value: {{ .Values.mediawiki.smtp.host | quote }}
-            - name: MEDIAWIKI_SMTP_ID_HOST
-              value: {{ .Values.mediawiki.smtp.idHost | quote }}
-            - name: MEDIAWIKI_SMTP_LOCALHOST
-              value: {{ .Values.mediawiki.smtp.localhost | quote }}
-            - name: MEDIAWIKI_SMTP_PORT
-              value: {{ .Values.mediawiki.smtp.port | quote }}
-            - name: MEDIAWIKI_SMTP_AUTH
-              value: {{ .Values.mediawiki.smtp.auth | quote }}
+            {{- include "isd-wiki.mediawikiEnv" . | nindent 12 }}
          volumeMounts:
             - name: tmp-dir
               mountPath: /tmp
             - name: mediawiki-html-volume
               mountPath: /var/www/html
-            - name: mediawiki-data
-              mountPath: /var/www/data
          # An explicitly-set mediawiki.resources always wins. An empty map falls
          # back to the defaults below rather than rendering nothing.
          #
@@ -264,9 +222,6 @@ spec:
             # defaultMode: 0644
         - name: nginx-cache
           emptyDir: {}
-        - name: mediawiki-data
-          persistentVolumeClaim:
-            claimName: {{ include "isd-wiki.fullname" . }}-data
         - name: mediawiki-html-volume
           persistentVolumeClaim:
             claimName: {{ include "isd-wiki.fullname" . }}-html
@@ -274,10 +229,22 @@ spec:
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.mediawiki.affinity }}
+      # Keep replicas off the same node. Without this both pods can land
+      # together and a single node drain still takes the whole site down,
+      # which is the exact failure the second replica exists to prevent.
+      # Required rather than preferred: a "preferred" rule that silently loses
+      # gives the appearance of HA with none of the protection.
       affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- if .Values.mediawiki.affinity }}
+        {{- toYaml .Values.mediawiki.affinity | nindent 8 }}
+        {{- else }}
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  {{- include "isd-wiki.selectorLabels" . | nindent 18 }}
+              topologyKey: kubernetes.io/hostname
+        {{- end }}
       {{- with .Values.mediawiki.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
