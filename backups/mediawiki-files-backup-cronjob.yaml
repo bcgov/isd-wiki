@@ -101,10 +101,14 @@ spec:
                     > /backups/daily/$DATE/$ARCHIVE
                   echo "Backup size: $(du -h /backups/daily/$DATE/$ARCHIVE | cut -f1)"
 
-                  # Promote the first backup of each month so there are restore
-                  # points beyond the daily window.
-                  if [ "$(date +%d)" = "01" ]; then
-                    echo "First of the month - promoting to /backups/monthly/$DATE"
+                  # Promote on the LAST day of the month, matching what the
+                  # backup container does for database dumps (isLastDayOfMonth).
+                  # Both then land in the same monthly/<date>/ folder, taken 35
+                  # minutes apart on the same night, so a monthly restore point
+                  # is a coherent database + files pair rather than two
+                  # snapshots a day out of step.
+                  if [ "$(date -d 'tomorrow' +%d)" = "01" ]; then
+                    echo "Last day of the month - promoting to /backups/monthly/$DATE"
                     mkdir -p /backups/monthly/$DATE
                     cp "/backups/daily/$DATE/$ARCHIVE" "/backups/monthly/$DATE/"
                   fi
