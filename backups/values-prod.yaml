@@ -1,0 +1,79 @@
+---
+# Values for the BC Gov "backup-storage" chart (bcgov/backup-storage, 0.1.18).
+#
+# This release backs up the PROD MediaWiki database only. The wiki's *files* are
+# handled separately by mediawiki-files-backup-cronjob.yaml -- see the note under
+# backupConfig for why they cannot be done here.
+
+backupConfig: |
+  postgres=<DB service:port/db>
+
+  # Database backup at 1 AM
+  0 1 * * * default ./backup.sh -s
+
+  # Database verification at 2 AM. Note there is deliberately no -s here: with
+  # it, this line takes a second full dump before verifying, which doubles the
+  # daily CPU/memory cost and confuses the rolling prune.
+  0 2 * * * default ./backup.sh -v all
+
+db:
+  passwordKey: <DB secret PW key>
+  secretName: <DB Secret>
+  usernameKey: <DB secret User key>
+
+env:
+  BACKUP_STRATEGY:
+    value: rolling
+  # Retention is per tier and applies ONLY to the database dumps this chart
+  # creates (~10Mi each), not to the file tarballs written by the CronJob --
+  # the container prunes by matching its own core filename, so anything it did
+  # not write is invisible to it.
+  #
+  # 14 daily + 8 weekly + 6 monthly = 28 dumps, roughly 280Mi. Depth is
+  # effectively free here and is the only defence against damage that is not
+  # noticed for weeks, so it is set well beyond the daily window.
+  DAILY_BACKUPS:
+    value: "14"
+  WEEKLY_BACKUPS:
+    value: "8"
+  MONTHLY_BACKUPS:
+    value: "6"
+  # NUM_BACKUPS is deliberately unset: getNumBackupsToRetain() only reads it in
+  # the fallback branch, which is unreachable while BACKUP_STRATEGY is rolling.
+  DATABASE_NAME:
+    value: app
+  DATABASE_SERVICE_NAME:
+    value: <DB Service>
+  ENVIRONMENT_FRIENDLY_NAME:
+    value: MediaWiki Backup (PROD)
+
+image:
+  repository: ghcr.io/bcgov/backup-container
+  tag: latest
+
+persistence:
+  backup:
+    # 12Gi is the namespace hard cap for the netapp-file-backup storage class
+    # (requests.storage 12Gi/12Gi). This PVC cannot be grown without a platform
+    # quota increase, so retention has to fit inside it.
+    size: 12Gi
+    storageAccessMode: ReadWriteMany
+    storageClassName: netapp-file-backup
+  verification:
+    # Scratch space for ./backup.sh -v: a throwaway local postgres instance that
+    # the newest dump is restored into and then torn down.
+    size: 1Gi
+    storageClassName: netapp-file-standard
+
+# NOTE: an earlier revision of this file registered the wiki's volumes here as
+# native ":dir" backup targets:
+#
+#   backupConfig: |
+#     /mediawiki-data:dir
+#     /mediawiki-html:dir
+#   volumes: [ ... the prod MediaWiki PVCs ... ]
+#
+# That cannot work and was never deployed. PVCs are namespace-scoped, so a pod
+# in the tools namespace cannot mount a PVC that lives in the prod namespace.
+# The file backup therefore runs as a CronJob that streams tar over `oc exec`
+# instead. Do not re-add the volumes block; it will not bind.
