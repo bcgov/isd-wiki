@@ -186,6 +186,53 @@ Quiesce the wiki first if the restore is broad rather than a single recovered
 file. If only uploads are being recovered, extract to a scratch directory and
 copy the individual files across instead.
 
+## Rehearsing a restore
+
+The nightly verification proves the newest dump *parses and queries*. It does
+not prove the wiki can be rebuilt from it. That needs a real restore into a real
+database, which `backup.sh -r` supports: point `-r` at a different host and
+database name and pass `-f` explicitly, and it restores there instead of over
+production.
+
+Pick a lower environment as the target and restore into a **scratch database
+name**, not the one that environment's own wiki uses — `-r` drops and recreates
+whatever it is pointed at.
+
+A target environment needs two things before the backup pod can reach it. Both
+already exist for the environment that was set up first; a second target needs
+them added:
+
+1. An `ExternalName` service in the tools namespace resolving to that
+   environment's Patroni service — see `external-name-service.yaml`.
+2. A `NetworkPolicy` in the target namespace allowing ingress on 5432 from the
+   tools namespace — see `network-policy.yaml`. The `podSelector` must match
+   that environment's Patroni master labels, which differ per environment
+   (`cluster-name` in particular is not the same everywhere).
+
+Then:
+
+```bash
+POD=$(oc get pod -n <NS> -l app.kubernetes.io/name=backup-storage -o name)
+
+oc exec -it -n <NS> $POD -- \
+  ./backup.sh -r postgres=<target service>:5432/<scratch db> \
+    -f <backup>_YYYY-MM-DD_HH-MM-SS.sql.gz
+```
+
+The script prompts for the target's superuser password and shows its settings
+for confirmation before doing anything. **Read the database name on that screen
+before accepting it.**
+
+Verify the restore against the source:
+
+```bash
+oc exec -n <Target NS> <patroni pod> -- psql -U postgres -d <scratch db> \
+  -c "SELECT count(*) FROM page; SELECT count(*) FROM revision;"
+```
+
+Counts should match the wiki as of the backup's date, not today. Drop the
+scratch database when finished.
+
 ## Backup schedule
 
 - **Database backup**: 01:00 daily
