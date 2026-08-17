@@ -1,9 +1,37 @@
 ---
+# File backup for the PROD MediaWiki.
+#
+# The database is handled by the backup-storage Helm release (values-prod.yaml).
+# This CronJob covers the parts of the wiki that live on the RWX html volume and
+# exist nowhere else. It runs in the tools namespace and reaches into the app
+# namespace over `oc exec`, because PVCs are namespace-scoped and cannot be
+# mounted across namespaces.
+#
+# Retention is implemented here, not by the backup container: that container
+# prunes by matching the core filename of dumps it wrote itself, so tarballs
+# written by this job are invisible to it and would otherwise accumulate
+# forever.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: <SA>
   namespace: <NS>
+---
+# Least privilege: this job only needs to find one pod and exec into it.
+# It previously bound ClusterRole/edit in the app namespace, which also granted
+# the ability to modify and delete production workloads.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: <SA>-exec
+  namespace: <Pod NS>
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -12,8 +40,8 @@ metadata:
   namespace: <Pod NS>
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: edit
+  kind: Role
+  name: <SA>-exec
 subjects:
   - kind: ServiceAccount
     name: <SA>
@@ -43,29 +71,75 @@ spec:
                 - -c
                 - |
                   set -e
-                  echo "Starting MediaWiki PROD files backup..."
+
+                  DAILY_KEEP=14
+                  MONTHLY_KEEP=6
+
                   DATE=$(date +%Y-%m-%d)
                   TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
+                  ARCHIVE="mediawiki-content-prod_$TIMESTAMP.tar.gz"
 
-                  # Create daily folder
+                  echo "Starting MediaWiki PROD files backup..."
                   mkdir -p /backups/daily/$DATE
 
-                  # Get MediaWiki pod name
                   POD=$(oc get pod -n <Pod NS> -l app.kubernetes.io/name=<wiki pod> -o jsonpath='{.items[0].metadata.name}')
                   echo "Found MediaWiki pod: $POD"
 
-                  # Backup mediawiki-data via tar streamed from pod
-                  echo "Backing up /var/www/data..."
-                  oc exec -n <Pod NS> $POD -c mediawiki -- tar -czf - -C /var/www/data . > /backups/daily/$DATE/mediawiki-data-prod_$TIMESTAMP.tar.gz
-                  echo "Data backup size: $(du -h /backups/daily/$DATE/mediawiki-data-prod_$TIMESTAMP.tar.gz | cut -f1)"
+                  # Only "images" and LocalSettings.php are backed up. Everything
+                  # else on this volume (extensions, includes, vendor, languages,
+                  # skins, resources, tests, core) is copied there from the
+                  # container image by the copy-mediawiki-files initContainer and
+                  # is reproducible by redeploying the image. Backing it up added
+                  # ~128Mi per day to protect nothing that would be lost.
+                  #
+                  # /var/www/data is not backed up: the PVC mounted there has
+                  # been empty since it was created, and produced a 104-byte
+                  # tarball every night.
+                  echo "Backing up /var/www/html/{images,LocalSettings.php}..."
+                  oc exec -n <Pod NS> $POD -c mediawiki -- \
+                    tar -czf - -C /var/www/html images LocalSettings.php \
+                    > /backups/daily/$DATE/$ARCHIVE
+                  echo "Backup size: $(du -h /backups/daily/$DATE/$ARCHIVE | cut -f1)"
 
-                  # Backup mediawiki-html via tar streamed from pod
-                  echo "Backing up /var/www/html..."
-                  oc exec -n <Pod NS> $POD -c mediawiki -- tar -czf - -C /var/www/html . > /backups/daily/$DATE/mediawiki-html-prod_$TIMESTAMP.tar.gz
-                  echo "HTML backup size: $(du -h /backups/daily/$DATE/mediawiki-html-prod_$TIMESTAMP.tar.gz | cut -f1)"
+                  # Promote the first backup of each month so there are restore
+                  # points beyond the daily window.
+                  if [ "$(date +%d)" = "01" ]; then
+                    echo "First of the month - promoting to /backups/monthly/$DATE"
+                    mkdir -p /backups/monthly/$DATE
+                    cp "/backups/daily/$DATE/$ARCHIVE" "/backups/monthly/$DATE/"
+                  fi
 
-                  echo "Backup complete!"
-                  ls -lh /backups/daily/$DATE/
+                  # Count-based rather than age-based: a run of failed jobs must
+                  # not be able to age out the backups that are still on disk.
+                  # Always scoped by filename so a database dump can never be a
+                  # deletion candidate.
+                  prune() {
+                    local dir="$1" pattern="$2" keep="$3"
+                    [ -d "$dir" ] || return 0
+                    find "$dir" -type f -name "$pattern" -printf '%T@ %p\n' 2>/dev/null \
+                      | sort -rn \
+                      | tail -n +$((keep + 1)) \
+                      | cut -d' ' -f2- \
+                      | while read -r f; do echo "  pruning $f"; rm -f "$f"; done
+                  }
+
+                  echo "Pruning..."
+                  prune /backups/daily   'mediawiki-content-prod_*.tar.gz' "$DAILY_KEEP"
+                  prune /backups/monthly 'mediawiki-content-prod_*.tar.gz' "$MONTHLY_KEEP"
+
+                  # Transitional: retire the previous naming. The old html
+                  # tarballs were full-volume copies and are still valid
+                  # restores, so they age out normally; the old data tarballs
+                  # were always empty and go immediately.
+                  prune /backups/daily 'mediawiki-html-prod_*.tar.gz' "$DAILY_KEEP"
+                  prune /backups/daily 'mediawiki-data-prod_*.tar.gz' 0
+
+                  # Only removes directories left empty by the above; date
+                  # folders still holding a database dump are untouched.
+                  find /backups/daily /backups/monthly -mindepth 1 -type d -empty -delete 2>/dev/null || true
+
+                  echo "Backup complete."
+                  df -h /backups | tail -1
               volumeMounts:
                 - name: backup-storage
                   mountPath: /backups
