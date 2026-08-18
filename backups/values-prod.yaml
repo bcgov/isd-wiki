@@ -16,10 +16,26 @@ backupConfig: |
   # daily CPU/memory cost and confuses the rolling prune.
   0 2 * * * default ./backup.sh -v all
 
+# These must point at a NON-SUPERUSER role -- the application account, not
+# "postgres". The verification step starts a local PostgreSQL with
+# POSTGRESQL_USER set to whatever this resolves to, and the RHEL image rejects
+# "postgres" as reserved:
+#
+#   createuser: error: creation of new role failed: ERROR: role "postgres" already exists
+#
+# That aborts the image's setup before it configures TCP, so the socket listens
+# but the port never opens and the readiness poll times out after 120s. Every
+# nightly verification failed this way, silently, because run-postgresql's
+# output is discarded.
+#
+# The application role dumps identically -- same 65 tables, 136 indexes, 65 COPY
+# blocks, 30 sequences -- and omits the CREATE ROLE for itself, which also
+# removes a restore error. Keep the superuser credentials in the same secret
+# under separate keys; restores still need them.
 db:
-  passwordKey: <DB secret PW key>
+  passwordKey: <app role PW key>
   secretName: <DB Secret>
-  usernameKey: <DB secret User key>
+  usernameKey: <app role user key>
 
 env:
   BACKUP_STRATEGY:
@@ -40,6 +56,13 @@ env:
     value: "6"
   # NUM_BACKUPS is deliberately unset: getNumBackupsToRetain() only reads it in
   # the fallback branch, which is unreachable while BACKUP_STRATEGY is rolling.
+  #
+  # MediaWiki's tables live in a "mediawiki" schema, not "public". Without this
+  # the post-restore check counts tables in "public", finds none, and reports
+  # "No tables were found in the restored database" even though the restore
+  # succeeded -- failing every nightly verification.
+  TABLE_SCHEMA:
+    value: mediawiki
   DATABASE_NAME:
     value: app
   DATABASE_SERVICE_NAME:

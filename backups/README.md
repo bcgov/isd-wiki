@@ -43,10 +43,13 @@ against a problem discovered weeks later.
 
 **1. PostgreSQL database** — `<DB>`, dumped with `pg_dump` by the backup
 container. About 10Mi per dump, so the whole 28-dump retention set costs roughly
-280Mi. A nightly job at 02:00 is supposed to restore the newest dump into a
-throwaway local postgres and test-query it, but **that check does not currently
-work** — see [Known issues](#known-issues). Treat the dumps as unverified until
-it does, which is part of why retention runs deep.
+280Mi. Every night at 02:00 the newest dump is restored into a throwaway local
+postgres and test-queried; the run reports how many tables came back. Only the
+newest dump is checked, which is part of why retention runs deep.
+
+That check requires two settings that are easy to get wrong and fail in
+confusing ways — a non-superuser database role and `TABLE_SCHEMA` — both
+explained in `values-prod.yaml`.
 
 **2. Wiki content** — `/var/www/html/images` and `/var/www/html/LocalSettings.php`,
 about 123Mi per day.
@@ -99,19 +102,28 @@ jobs must not be able to age out the backups that are still on disk.
 
 ### 1. Create database secret
 
-Get the prod database credentials and create the secret in the tools namespace:
+The secret needs **two** sets of credentials. Backups and verification run as the
+non-superuser application role; restores need the superuser. Creating only the
+superuser pair is what breaks the nightly verification — see `values-prod.yaml`.
 
 ```bash
-# Get prod credentials
-POSTGRES_USER=$(oc get secret <db> -n <Pod NS> -o jsonpath='{.data.<secret user key>}' | base64 -d)
-POSTGRES_PASS=$(oc get secret <db> -n <Pod NS> -o jsonpath='{.data.<secret pw key>}' | base64 -d)
+# Application role - used for backups and verification
+APP_USER=$(oc get secret <db> -n <Pod NS> -o jsonpath='{.data.app-db-username}' | base64 -d)
+APP_PASS=$(oc get secret <db> -n <Pod NS> -o jsonpath='{.data.app-db-password}' | base64 -d)
 
-# Create secret in tools namespace
+# Superuser - used for restores
+SU_USER=$(oc get secret <db> -n <Pod NS> -o jsonpath='{.data.superuser-username}' | base64 -d)
+SU_PASS=$(oc get secret <db> -n <Pod NS> -o jsonpath='{.data.superuser-password}' | base64 -d)
+
 oc create secret generic <secret> \
-  --from-literal=superuser-username=$POSTGRES_USER \
-  --from-literal=superuser-password=$POSTGRES_PASS \
+  --from-literal=app-username=$APP_USER \
+  --from-literal=app-password=$APP_PASS \
+  --from-literal=superuser-username=$SU_USER \
+  --from-literal=superuser-password=$SU_PASS \
   -n <NS>
 ```
+
+`db.usernameKey` / `db.passwordKey` in the values must point at the **app** keys.
 
 ### 2. Create network resources
 
@@ -326,46 +338,18 @@ indexes, content readable, and an MD5 of page titles identical to production.
 ## Backup schedule
 
 - **Database backup**: 01:00 daily
-- **Database verification**: 02:00 daily — **currently failing, see below**
+- **Database verification**: 02:00 daily (newest dump only)
 - **File backup and prune**: 01:35 daily
 
 ## Known issues
 
-### The nightly verification never succeeds
+### Nothing reports a failure
 
-`./backup.sh -v` has been failing every night and reporting it nowhere. Backups
-themselves are fine — this is the check that is broken, not the data.
-
-`onStartServer` launches the local verification database with
-`POSTGRESQL_USER=$(getUsername ...)`, which resolves to the configured database
-user. That user is `postgres`, and the RHEL PostgreSQL image treats it as
-reserved:
-
-```
-createuser: error: creation of new role failed: ERROR:  role "postgres" already exists
-```
-
-That error aborts the image's setup script partway, so it never configures the
-server to listen on TCP. The socket comes up but the port does not:
-
-```
-/var/run/postgresql:5432 - accepting connections
-localhost:5432          - no response
-```
-
-The readiness probe then polls over TCP, never connects, and gives up after
-`DATABASE_SERVER_TIMEOUT` (120s). `run-postgresql`'s output is discarded with
-`>/dev/null 2>&1`, so nothing explains why.
-
-It is silent because `WEBHOOK_URL` is unconfigured — the run ends with
-`Missing PagerDuty service key` and the failure only ever reaches pod logs.
-
-**Likely fix, not yet validated:** point the release at the non-superuser `app`
-role instead of `postgres`. Production has that role, and `patroni-instance`
-holds `app-db-username` / `app-db-password`. The secret in the tools namespace
-currently carries only the superuser keys, so it would need recreating. This
-also changes the account `pg_dump` runs as, so confirm the dump is still
-complete before trusting it.
+`WEBHOOK_URL` is wired to a secret but unconfigured, so every run ends with
+`Missing PagerDuty service key` and failures reach nothing but pod logs. The
+nightly verification was broken for an unknown length of time and was only found
+by running it by hand. Until this is configured, "the backups are fine" is an
+assumption, not a fact.
 
 ### Dumps are not restorable without `-I`
 
