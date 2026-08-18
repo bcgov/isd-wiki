@@ -89,7 +89,8 @@ jobs must not be able to age out the backups that are still on disk.
 >   files in order, so pass the committed file first and the overlay second. The
 >   overlay needs only `backupConfig`, the three `db.*` keys and
 >   `env.DATABASE_SERVICE_NAME`; everything else stays here.
-> - `mediawiki-files-backup-cronjob.yaml`, `network-policy.yaml`,
+> - `mediawiki-files-backup-cronjob.yaml`,
+>   `mediawiki-backup-healthcheck-cronjob.yaml`, `network-policy.yaml`,
 >   `external-name-service.yaml` — no overlay mechanism exists for raw
 >   manifests, so substitute the placeholders into a private rendered copy and
 >   apply that. Regenerate it whenever the committed file changes, or the two
@@ -189,6 +190,19 @@ oc create job --from=cronjob/mediawiki-files-backup-prod test-file-backup -n <NS
 oc logs -f job/test-file-backup -n <NS>
 oc delete job test-file-backup -n <NS>
 ```
+
+### 6. Deploy the health check
+
+```bash
+oc apply -f mediawiki-backup-healthcheck-cronjob.yaml
+
+# Run it once to confirm it passes against the backups already on disk
+oc create job --from=cronjob/mediawiki-backup-healthcheck healthcheck-test -n <NS>
+oc logs -f job/healthcheck-test -n <NS>
+oc delete job healthcheck-test -n <NS>
+```
+
+Needs no ServiceAccount or RBAC — it only mounts the backup volume read-only.
 
 ## How to restore
 
@@ -338,18 +352,40 @@ indexes, content readable, and an MD5 of page titles identical to production.
 ## Backup schedule
 
 - **Database backup**: 01:00 daily
-- **Database verification**: 02:00 daily (newest dump only)
 - **File backup and prune**: 01:35 daily
+- **Database verification**: 02:00 daily (newest dump only)
+- **Health check**: 03:00 daily
+
+## Monitoring
+
+`mediawiki-backup-healthcheck-cronjob.yaml` checks, every morning at 03:00, that
+the backups that should exist actually do: a database dump over 1Mi and a content
+archive over 50Mi both written in the last 25 hours, and the volume under 85%
+full. If any check fails the Job exits non-zero, and OpenShift emails the repo
+owners.
+
+This is a pull check rather than the container's own `WEBHOOK_URL`, on purpose.
+The backup container runs `go-crond` in a long-lived pod: when `backup.sh`
+fails, that pod stays `1/1 Running`, nothing restarts, no Job object appears and
+no metric moves. Infrastructure monitoring sees a perfectly healthy container.
+That is exactly how the nightly verification stayed broken unnoticed.
+
+A webhook only fires when the thing that is broken still works well enough to
+send it, so it cannot report a pod that never started or a cron that never ran.
+Checking the artefacts on disk has no such blind spot, needs no receiver, no
+credentials and no external service.
+
+It does not replace reading the verification result — it reports that a backup
+exists and is a plausible size, not that it restores. Rehearse a restore
+periodically; see [Rehearsing a restore](#rehearsing-a-restore).
 
 ## Known issues
 
-### Nothing reports a failure
+### `WEBHOOK_URL` is unconfigured
 
-`WEBHOOK_URL` is wired to a secret but unconfigured, so every run ends with
-`Missing PagerDuty service key` and failures reach nothing but pod logs. The
-nightly verification was broken for an unknown length of time and was only found
-by running it by hand. Until this is configured, "the backups are fine" is an
-assumption, not a fact.
+Every run ends with `Missing PagerDuty service key`, so the container itself
+reports nothing. This is deliberate rather than outstanding — see
+[Monitoring](#monitoring) for why the health check covers it better.
 
 ### Dumps are not restorable without `-I`
 

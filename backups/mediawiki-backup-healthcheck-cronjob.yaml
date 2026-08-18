@@ -1,0 +1,101 @@
+---
+# Backup health check.
+#
+# The backup container runs go-crond in a long-lived pod. When backup.sh fails,
+# that pod stays 1/1 Running and healthy - no restart, no Job object, no metric
+# moves. Infrastructure monitoring sees nothing wrong. That is how a nightly
+# verification stayed broken without anyone noticing.
+#
+# This turns that invisible internal failure into a failed Kubernetes Job, which
+# OpenShift already emails on. It is a pull check rather than a push
+# notification on purpose: a webhook only fires when the thing that is broken
+# still works well enough to send it, so it cannot report a pod that never
+# started or a cron that never ran. Checking the artefacts on disk has no such
+# blind spot.
+#
+# Runs at 03:00, after the 01:00 dump, the 01:35 file backup and the 02:00
+# verification. Mounts the backup volume read-only and writes nothing.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mediawiki-backup-healthcheck
+  namespace: <NS>
+spec:
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  # Keep failures around to be looked at; successes are noise.
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # One attempt, then fail for real. Retrying would delay the alert and
+      # could mask an intermittent problem worth seeing.
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: healthcheck
+              image: <OC Cli image>
+              command:
+                - /bin/bash
+                - -c
+                - |
+                  set -uo pipefail
+                  FAILED=0
+                  # 25h, so a run that slips slightly does not false-alarm.
+                  MAXAGE=1500
+
+                  fail() { echo "FAIL: $*"; FAILED=1; }
+                  pass() { echo "ok:   $*"; }
+
+                  echo "=== Database dump ==="
+                  DUMP=$(find /backups -name '*.sql.gz' -mmin -$MAXAGE -size +1M | head -1)
+                  if [ -n "$DUMP" ]; then
+                    pass "recent dump $(basename "$DUMP") ($(du -h "$DUMP" | cut -f1))"
+                  else
+                    fail "no database dump over 1M written in the last 25h"
+                  fi
+
+                  echo "=== Content archive ==="
+                  # The legacy mediawiki-html-prod_* name is accepted while
+                  # archives from before the backup was narrowed age out of the
+                  # daily window. Drop that clause once they are gone.
+                  ARCHIVE=$(find /backups \
+                    \( -name 'mediawiki-content-prod_*.tar.gz' \
+                    -o -name 'mediawiki-html-prod_*.tar.gz' \) \
+                    -mmin -$MAXAGE -size +50M | head -1)
+                  if [ -n "$ARCHIVE" ]; then
+                    pass "recent archive $(basename "$ARCHIVE") ($(du -h "$ARCHIVE" | cut -f1))"
+                  else
+                    fail "no content archive over 50M written in the last 25h"
+                  fi
+
+                  echo "=== Capacity ==="
+                  USED=$(df --output=pcent /backups | tail -1 | tr -dc '0-9')
+                  if [ "${USED:-100}" -lt 85 ]; then
+                    pass "volume ${USED}% used"
+                  else
+                    fail "backup volume ${USED}% used - pruning is not keeping up"
+                  fi
+
+                  echo
+                  df -h /backups | tail -1
+
+                  if [ "$FAILED" -ne 0 ]; then
+                    echo
+                    echo "Backup health check FAILED. Recent backups are missing,"
+                    echo "undersized, or the volume is filling. Inspect with:"
+                    echo "  oc logs -n <NS> deployment/mediawiki-backup-prod-backup-storage"
+                    exit 1
+                  fi
+                  echo "Backup health check passed."
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+                  readOnly: true
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: mediawiki-backup-prod-backup-storage-backup-pvc
+                readOnly: true
