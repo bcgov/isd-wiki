@@ -15,13 +15,38 @@ the wiki's volumes in prod.
 Both write into the same PVC, `mediawiki-backup-prod-backup-storage-backup-pvc`
 (12Gi, RWX, `netapp-file-backup`), under `/backups/{daily,weekly,monthly}/YYYY-MM-DD/`.
 
+## Strategy
+
+Two tiers, with different jobs.
+
+| Tier | Holds | Window | Recovery |
+|---|---|---|---|
+| This project's backups, on the PVC | Database dumps and content archives | 14 daily, 8 weekly, 6 monthly | Self-service, minutes |
+| OCIO platform backup of that PVC | The whole volume as it stood | 90 days, geographically separate | Request to OCIO, slow |
+
+The first tier is what anyone recovering a deleted page or a bad migration will
+actually use, and is entirely under this project's control. The second is the
+off-site floor underneath it — it is the reason the PVC sits on
+`netapp-file-backup` rather than `netapp-file-standard`, and it holds copies of
+files that tier-one pruning has already deleted.
+
+Note what the platform tier does **not** cover: it protects the backup volume,
+not the wiki. The production database and html volumes are on
+`netapp-file-standard` with no equivalent guarantee. Keeping backups on separate
+storage from the thing they protect is the point.
+
+Retention depth is set by how long damage can go unnoticed, not by capacity —
+database dumps are ~10Mi each, so depth is nearly free and is the only defence
+against a problem discovered weeks later.
+
 ## What is backed up
 
 **1. PostgreSQL database** — `<DB>`, dumped with `pg_dump` by the backup
 container. About 10Mi per dump, so the whole 28-dump retention set costs roughly
-280Mi. The newest dump is restored into a throwaway local postgres and
-test-queried every night at 02:00; older dumps are *not* verified, which is part
-of why retention runs deep.
+280Mi. A nightly job at 02:00 is supposed to restore the newest dump into a
+throwaway local postgres and test-query it, but **that check does not currently
+work** — see [Known issues](#known-issues). Treat the dumps as unverified until
+it does, which is part of why retention runs deep.
 
 **2. Wiki content** — `/var/www/html/images` and `/var/www/html/LocalSettings.php`,
 about 123Mi per day.
@@ -51,6 +76,26 @@ jobs must not be able to age out the backups that are still on disk.
 > without a platform quota increase. Current retention lands at roughly 2.8Gi.
 
 ## Deployment steps
+
+> **Every file here is anonymised and none of them deploy as-is.** This is a
+> public repository, so the real namespaces, service accounts and secret names
+> are placeholders. They are not valid Kubernetes identifiers, so applying them
+> unmodified fails.
+>
+> - `values-prod.yaml` — layer a private overlay on top. Helm merges values
+>   files in order, so pass the committed file first and the overlay second. The
+>   overlay needs only `backupConfig`, the three `db.*` keys and
+>   `env.DATABASE_SERVICE_NAME`; everything else stays here.
+> - `mediawiki-files-backup-cronjob.yaml`, `network-policy.yaml`,
+>   `external-name-service.yaml` — no overlay mechanism exists for raw
+>   manifests, so substitute the placeholders into a private rendered copy and
+>   apply that. Regenerate it whenever the committed file changes, or the two
+>   will drift.
+>
+> Failures are loud rather than silent: the API server rejects `<SA>` and
+> `<DB Secret>` as invalid names. But a rejected Helm upgrade can still leave a
+> valid-looking ConfigMap behind, so always deploy with `--rollback-on-failure`
+> (`--atomic` on older Helm).
 
 ### 1. Create database secret
 
@@ -87,8 +132,9 @@ helm repo add bcgov https://bcgov.github.io/helm-charts
 helm repo update
 
 helm upgrade --install mediawiki-backup-prod bcgov/backup-storage \
-  --version 0.1.18 \
+  --version 0.1.18 --rollback-on-failure \
   -f values-prod.yaml \
+  -f <private>/values-prod.local.yaml \
   -n <NS>
 
 oc get pods -n <NS> | grep mediawiki-backup-prod
@@ -136,9 +182,25 @@ oc delete job test-file-backup -n <NS>
 
 ### 1. Restore the database
 
-Prefer `backup.sh -r`. It drops and recreates the target database, prompts for
-the admin password, and shows the settings it will use for confirmation first.
-Have the superuser password from `<DB Secret>` ready.
+> ## Always pass `-I`
+>
+> **A restore without `-I` destroys the target and restores nothing.**
+>
+> The backup container ships `pg_dump` 18.x while the database servers run
+> PostgreSQL 12.4, so every dump contains `SET transaction_timeout = 0;` on line
+> 4 — a parameter 12.4 does not recognise. The restore runs `DROP DATABASE`,
+> then `CREATE DATABASE`, then dies on that line and stops, because errors are
+> fatal by default. The target is left empty and the data is not loaded.
+>
+> `-I` continues past errors. Verified twice against real backups: with `-I` the
+> restore is complete and correct; without it, it is destructive.
+>
+> Restoring into a cluster that already has the `app` and `replication` roles
+> also raises "role already exists". Harmless, and `-I` covers it too.
+
+`backup.sh -r` drops and recreates the target database, prompts for the admin
+password, and shows the settings it will use for confirmation first. Have the
+superuser password from `<DB Secret>` ready.
 
 ```bash
 POD=$(oc get pod -n <NS> -l app.kubernetes.io/name=backup-storage -o name)
@@ -147,12 +209,21 @@ POD=$(oc get pod -n <NS> -l app.kubernetes.io/name=backup-storage -o name)
 oc exec -n <NS> $POD -- ./backup.sh -l
 
 # Most recent backup, restored over prod - destructive
-oc exec -it -n <NS> $POD -- ./backup.sh -r postgres=<DB service:port/db>
+oc exec -it -n <NS> $POD -- ./backup.sh -I -r postgres=<DB service:port/db>
 
 # A specific backup file
 oc exec -it -n <NS> $POD -- \
-  ./backup.sh -r postgres=<DB service:port/db> \
+  ./backup.sh -I -r postgres=<DB service:port/db> \
     -f <backup>_YYYY-MM-DD_HH-MM-SS.sql.gz
+```
+
+Expect these three errors even on a successful restore. Anything beyond them
+deserves a closer look:
+
+```
+ERROR:  unrecognized configuration parameter "transaction_timeout"
+ERROR:  role "app" already exists
+ERROR:  role "replication" already exists
 ```
 
 To rehearse a restore without touching production, point `-r` at a different
@@ -188,15 +259,22 @@ copy the individual files across instead.
 
 ## Rehearsing a restore
 
-The nightly verification proves the newest dump *parses and queries*. It does
-not prove the wiki can be rebuilt from it. That needs a real restore into a real
-database, which `backup.sh -r` supports: point `-r` at a different host and
-database name and pass `-f` explicitly, and it restores there instead of over
-production.
+Nothing else here proves the wiki can be rebuilt from a backup. That needs a
+real restore into a real database, which `backup.sh -r` supports: point `-r` at
+a different host and database name and pass `-f` explicitly, and it restores
+there instead of over production.
 
 Pick a lower environment as the target and restore into a **scratch database
 name**, not the one that environment's own wiki uses — `-r` drops and recreates
 whatever it is pointed at.
+
+The scratch database must **already exist**. The restore's first action is
+`DROP DATABASE`; if it is not there that fails, and every step after it —
+create, grant, load — is skipped.
+
+```bash
+oc exec -n <Target NS> <patroni pod> -- psql -U postgres -c 'CREATE DATABASE <scratch db>;'
+```
 
 A target environment needs two things before the backup pod can reach it. Both
 already exist for the environment that was set up first; a second target needs
@@ -215,7 +293,7 @@ Then:
 POD=$(oc get pod -n <NS> -l app.kubernetes.io/name=backup-storage -o name)
 
 oc exec -it -n <NS> $POD -- \
-  ./backup.sh -r postgres=<target service>:5432/<scratch db> \
+  ./backup.sh -I -r postgres=<target service>:5432/<scratch db> \
     -f <backup>_YYYY-MM-DD_HH-MM-SS.sql.gz
 ```
 
@@ -223,18 +301,75 @@ The script prompts for the target's superuser password and shows its settings
 for confirmation before doing anything. **Read the database name on that screen
 before accepting it.**
 
-Verify the restore against the source:
+Verify the restore against the source. MediaWiki's tables live in a `mediawiki`
+schema, not `public`, so they need qualifying — an unqualified `FROM page` just
+errors:
 
 ```bash
-oc exec -n <Target NS> <patroni pod> -- psql -U postgres -d <scratch db> \
-  -c "SELECT count(*) FROM page; SELECT count(*) FROM revision;"
+oc exec -n <Target NS> <patroni pod> -- psql -U postgres -d <scratch db> -t -A -F'|' -c "
+SELECT
+  (SELECT count(*) FROM information_schema.tables WHERE table_schema='mediawiki'),
+  (SELECT count(*) FROM pg_indexes WHERE schemaname='mediawiki'),
+  (SELECT count(*) FROM mediawiki.page),
+  (SELECT count(*) FROM mediawiki.revision),
+  (SELECT max(rev_timestamp) FROM mediawiki.revision);"
 ```
 
-Counts should match the wiki as of the backup's date, not today. Drop the
-scratch database when finished.
+Table and index counts should match production **exactly** — those catch a
+restore that stopped partway, which row counts alone can miss. Page and revision
+counts should be at or just below production, and the newest revision timestamp
+should predate the backup. Drop the scratch database when finished.
+
+Rehearsed 2026-08-18 against two separate backups: 65/65 tables, 197/197
+indexes, content readable, and an MD5 of page titles identical to production.
 
 ## Backup schedule
 
 - **Database backup**: 01:00 daily
-- **Database verification**: 02:00 daily (newest dump only)
+- **Database verification**: 02:00 daily — **currently failing, see below**
 - **File backup and prune**: 01:35 daily
+
+## Known issues
+
+### The nightly verification never succeeds
+
+`./backup.sh -v` has been failing every night and reporting it nowhere. Backups
+themselves are fine — this is the check that is broken, not the data.
+
+`onStartServer` launches the local verification database with
+`POSTGRESQL_USER=$(getUsername ...)`, which resolves to the configured database
+user. That user is `postgres`, and the RHEL PostgreSQL image treats it as
+reserved:
+
+```
+createuser: error: creation of new role failed: ERROR:  role "postgres" already exists
+```
+
+That error aborts the image's setup script partway, so it never configures the
+server to listen on TCP. The socket comes up but the port does not:
+
+```
+/var/run/postgresql:5432 - accepting connections
+localhost:5432          - no response
+```
+
+The readiness probe then polls over TCP, never connects, and gives up after
+`DATABASE_SERVER_TIMEOUT` (120s). `run-postgresql`'s output is discarded with
+`>/dev/null 2>&1`, so nothing explains why.
+
+It is silent because `WEBHOOK_URL` is unconfigured — the run ends with
+`Missing PagerDuty service key` and the failure only ever reaches pod logs.
+
+**Likely fix, not yet validated:** point the release at the non-superuser `app`
+role instead of `postgres`. Production has that role, and `patroni-instance`
+holds `app-db-username` / `app-db-password`. The secret in the tools namespace
+currently carries only the superuser keys, so it would need recreating. This
+also changes the account `pg_dump` runs as, so confirm the dump is still
+complete before trusting it.
+
+### Dumps are not restorable without `-I`
+
+See the warning under [Restore the database](#1-restore-the-database). The
+`pg_dump` in the container is several major versions ahead of the servers. The
+durable fix is to align them — which ultimately means confronting that
+PostgreSQL 12.4 has been end-of-life since November 2024.
