@@ -22,6 +22,9 @@ metadata:
   namespace: <NS>
 spec:
   schedule: "0 3 * * *"
+  # Must match the other CronJob and the backup container's local time,
+  # otherwise this runs hours BEFORE the backups it is meant to be checking.
+  timeZone: America/Vancouver
   concurrencyPolicy: Forbid
   # Keep failures around to be looked at; successes are noise.
   successfulJobsHistoryLimit: 1
@@ -50,7 +53,8 @@ spec:
                   pass() { echo "ok:   $*"; }
 
                   echo "=== Database dump ==="
-                  DUMP=$(find /backups -name '*.sql.gz' -mmin -$MAXAGE -size +1M | head -1)
+                  DUMP=$(find /backups -name '*.sql.gz' -mmin -$MAXAGE -size +1M \
+                    -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2-)
                   if [ -n "$DUMP" ]; then
                     pass "recent dump $(basename "$DUMP") ($(du -h "$DUMP" | cut -f1))"
                   else
@@ -64,7 +68,8 @@ spec:
                   ARCHIVE=$(find /backups \
                     \( -name 'mediawiki-content-prod_*.tar.gz' \
                     -o -name 'mediawiki-html-prod_*.tar.gz' \) \
-                    -mmin -$MAXAGE -size +50M | head -1)
+                    -mmin -$MAXAGE -size +50M \
+                    -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2-)
                   if [ -n "$ARCHIVE" ]; then
                     pass "recent archive $(basename "$ARCHIVE") ($(du -h "$ARCHIVE" | cut -f1))"
                   else

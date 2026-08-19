@@ -283,6 +283,56 @@ Quiesce the wiki first if the restore is broad rather than a single recovered
 file. If only uploads are being recovered, extract to a scratch directory and
 copy the individual files across instead.
 
+### 3. Full rebuild
+
+What is backed up, and what is not:
+
+| | Where it comes from |
+|---|---|
+| Database | the dump |
+| Uploads and `LocalSettings.php` | the content archive |
+| MediaWiki core, extensions, skins | the container image, redeployed |
+| **Secrets** | **not backed up — recreate by hand** |
+
+Verified 2026-08-19: the only files on the html volume that are not in the image
+are `images/` (1,632 of 1,632 present in the archive) and `LocalSettings.php`.
+Everything else on that volume is a copy of the image, or a leftover from an
+older MediaWiki that a rebuild does not need.
+
+```bash
+# 1. Secrets first - nothing else works without them. Not in any backup.
+#    Recreate: isd-wiki-credentials, patroni-instance, sso-client-conf,
+#    dev-sso-client-conf, gchr-isd-wiki-pull-secret
+oc get secret -n <Pod NS>
+
+# 2. Database and app, from the chart
+helm upgrade --install patroni ... -n <Pod NS>
+helm upgrade --install isd-wiki ... -n <Pod NS>
+
+# 3. Restore the database - note -I, see the warning above
+POD=$(oc get pod -n <NS> -l app.kubernetes.io/name=backup-storage -o name)
+oc exec -n <NS> $POD -- ./backup.sh -l
+oc exec -it -n <NS> $POD -- \
+  ./backup.sh -I -r postgres=<DB service:port/db> \
+    -f <backup>_YYYY-MM-DD_HH-MM-SS.sql.gz
+
+# 4. Restore uploads and LocalSettings.php
+oc cp <NS>/<backup pod>:/backups/daily/YYYY-MM-DD/mediawiki-content-prod_TIMESTAMP.tar.gz \
+  ./restore.tar.gz
+WIKI=$(oc get pod -n <Pod NS> -l app.kubernetes.io/name=<wiki label> \
+  -o jsonpath='{.items[0].metadata.name}')
+oc exec -i -n <Pod NS> $WIKI -c mediawiki -- \
+  tar -xzf - -C /var/www/html < ./restore.tar.gz
+
+# 5. Confirm
+oc exec -n <Pod NS> <patroni pod> -- psql -U postgres -d <DB> -t -c \
+  "SELECT count(*) FROM mediawiki.page;"
+```
+
+If the database was restored into a **rebuilt** Patroni, its roles carry the old
+passwords from the dump while the new secret holds freshly generated ones. Reset
+the app role to match the secret, or the wiki cannot connect.
+
 ## Rehearsing a restore
 
 Nothing else here proves the wiki can be rebuilt from a backup. That needs a
@@ -351,10 +401,17 @@ indexes, content readable, and an MD5 of page titles identical to production.
 
 ## Backup schedule
 
+All times `America/Vancouver`.
+
 - **Database backup**: 01:00 daily
 - **File backup and prune**: 01:35 daily
 - **Database verification**: 02:00 daily (newest dump only)
 - **Health check**: 03:00 daily
+
+> Both CronJobs set `spec.timeZone`. Kubernetes schedules CronJobs in **UTC** by
+> default while the backup container's `go-crond` uses pod local time, so without
+> it the two halves run seven hours apart in the wrong order. Any new CronJob
+> here needs the same field.
 
 ## Monitoring
 
