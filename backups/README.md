@@ -74,6 +74,25 @@ never become a deletion candidate for the file job or vice versa.
 File pruning is count-based rather than age-based on purpose: a run of failed
 jobs must not be able to age out the backups that are still on disk.
 
+Everything that accumulates is bounded, and nothing needs manual tidying:
+
+| Grows | Bounded by | Cap |
+|---|---|---|
+| Database dumps | backup container, rolling strategy | 14 daily / 8 weekly / 6 monthly |
+| Content archives, daily | file CronJob prune | 14 |
+| Content archives, monthly | file CronJob prune | 6 |
+| Legacy `mediawiki-html-prod_*` | file CronJob transitional prune | 14, then none |
+| Empty date directories | both prunes, after deleting | removed |
+| Kubernetes Jobs | `successfulJobsHistoryLimit` / `failedJobsHistoryLimit` | 3 and 3 |
+| Helm release secrets | `helm --history-max` | 10 (default) |
+
+Steady state is roughly 2.5Gi: 14 daily and 6 monthly archives at ~124Mi, plus
+28 dumps at ~10Mi.
+
+> The monthly promotion of content archives only fires on the last day of the
+> month, so it has not run yet. Worth glancing at `/backups/monthly/` on the 1st
+> to confirm a `mediawiki-content-prod_*` landed beside the dump.
+
 > **Sizing constraint.** `netapp-file-backup` is capped at 12Gi for this
 > namespace (`requests.storage 12Gi/12Gi`), so the backup PVC cannot be grown
 > without a platform quota increase. Current retention lands at roughly 2.8Gi.
