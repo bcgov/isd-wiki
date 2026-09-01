@@ -53,7 +53,12 @@ metadata:
   name: <SA>
   namespace: <NS>
 spec:
-  schedule: "35 1 * * *"  # Run at 1:35 AM (after DB backup at 1:00 AM)
+  schedule: "35 1 * * *"  # 01:35, 35 minutes after the 01:00 database dump
+  # Kubernetes schedules CronJobs in UTC unless told otherwise, but the backup
+  # container's go-crond runs in the pod's local time. Without this the two are
+  # 6h35m apart in the wrong order, not 35 minutes apart, and a day's folder
+  # pairs a database dump with a file archive from the previous evening.
+  timeZone: America/Vancouver
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 3

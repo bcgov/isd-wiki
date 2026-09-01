@@ -102,7 +102,7 @@ ini_set('display_errors', 1);
 ## To enable image uploads, make sure the 'images' directory
 ## is writable, then set this to true:
 \$wgEnableUploads = true;
-\$wgFileExtensions = array('png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx');
+\$wgFileExtensions = array('png', 'jpg', 'jpeg', 'gif', 'svg', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx');
 \$wgStrictFileExtensions = true;
 \$wgMaxUploadSize = 10 * 1024 * 1024; // 10 MB max
 \$wgUploadSizeWarning = 5 * 1024 * 1024; // Warn at 5 MB
@@ -133,8 +133,16 @@ wfLoadExtension( 'SyntaxHighlight_GeSHi' );
 # \$wgTmpDirectory = "/tmp";
 # \$wgUseImageMagick = true;
 # \$wgImageMagickConvertCommand = "/usr/bin/convert";
-# \$wgSVGFileRenderer = 'rsvg';
-# \$wgSVGFileRendererPath = '/usr/bin/rsvg-convert';
+#
+# SVG rasterisation needs no configuration here. MediaWiki defaults to
+# \$wgSVGConverter = 'ImageMagick' with an empty \$wgSVGConverterPath, which
+# resolves "convert" off PATH (/usr/bin/convert in this image), and that
+# build delegates SVG to librsvg 2.62 - the "librsvg" apk in the Dockerfile.
+# Do not set \$wgSVGConverter = 'rsvg': that invokes the rsvg-convert binary,
+# which Alpine ships in a separate "rsvg-convert" package that this image
+# does NOT install. (The settings previously suggested here, wgSVGFileRenderer
+# and wgSVGFileRendererPath, are not MediaWiki settings at all - the real
+# names are wgSVGConverter / wgSVGConverterPath.)
 
 
 
@@ -268,6 +276,23 @@ EOF
 # more obviously interactive (default style is a very subtle 1px dotted
 # underline that's easy to miss).
 $wgexLingoWCAGStyle = true;
+EOF
+    fi
+
+    # svg was added to the fresh-install $wgFileExtensions list above, which
+    # only ever runs on a wiki that has no LocalSettings.php yet. Both test and
+    # prod were installed before that, so they carry the original array literal
+    # and would keep rejecting .svg forever. Append rather than rewrite the
+    # literal: PHP takes the last assignment, so pushing onto the array here
+    # leaves the operator-visible list above untouched and stays re-runnable.
+    if ! setting_active "\$wgFileExtensions[] = 'svg'"; then
+        echo "Adding svg to \$wgFileExtensions in existing LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# Accept SVG uploads. Appended after the $wgFileExtensions array literal set
+# at install time, so it applies to wikis installed before svg was allowed.
+# $wgStrictFileExtensions is on, so this list is the whole allowlist.
+$wgFileExtensions[] = 'svg';
 EOF
     fi
 fi
