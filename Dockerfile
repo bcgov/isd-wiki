@@ -77,6 +77,51 @@ ENV MEDIAWIKI_MAJOR_VERSION=1.46
 ENV MEDIAWIKI_VERSION=1.46.0
 ENV MEDIAWIKI_VERSION_STR=1_46
 
+# --- MediaWiki core workaround: ZIP magic number misdetection ---
+# MediaWiki 1.46.0 adds "PK\x03\x04" => 'application/epub+zip' to
+# MimeAnalyzer::MAGIC_NUMBERS. Every ZIP-based format opens with that magic
+# number, so the MAGIC_NUMBERS loop matches first and returns early, and
+# detectZipTypeFromFile() - the function that actually tells docx from xlsx
+# from ODF - is never reached. improveTypeFromExtension() only rescues
+# 'application/x-opc+zip' and the OpenDocument types, so 'application/epub+zip'
+# survives to the extension check and every OOXML/ODF upload is rejected with
+# "File extension .docx does not match the detected MIME type of the file
+# (application/epub+zip)". This hits docx, xlsx, pptx, dotx, xltx, ppsx and ODF
+# alike. The mapping is not even usable as written: 'epub' is absent from
+# $wgFileExtensions, so nothing can be uploaded as an epub either way.
+#
+# It also silently disables the 'application/java' ZIP-applet check, because
+# detectZipTypeFromFile() is that type's only producer and it is listed in
+# $wgMimeTypeExclusions.
+#
+# This ships in the official docker.io/library/mediawiki image, not in anything
+# we build - verified byte-identical between mediawiki:1.46-fpm-alpine and our
+# own image. 1.46.0 is the only 1.46 release published, so there is no patch
+# version to bump to.
+#
+# Removing the two lines restores the previous behaviour: guessMimeType()
+# returns 'application/x-opc+zip' and improveTypeFromExtension() resolves that
+# to the real wordprocessingml/spreadsheetml type. Verified in aebbdd-test.
+#
+# Deliberately a targeted sed rather than a patches/ overlay: MimeAnalyzer.php
+# is core and changes between releases, so a whole-file COPY would pin it to
+# 1.46.0 and mask later fixes to it, including security fixes. The guards below
+# fail the build if upstream changes or fixes these lines, so the next version
+# bump surfaces this rather than silently no-opping. Remove this block once a
+# MediaWiki release ships without the epub mapping.
+RUN set -eux; \
+    F=/var/www/html/includes/libs/Mime/MimeAnalyzer.php; \
+    if ! grep -q 'epub+zip' "$F"; then \
+        echo "MimeAnalyzer.php no longer maps ZIP to epub+zip - drop this workaround" >&2; \
+        exit 1; \
+    fi; \
+    sed -i -e '/^[[:space:]]*\/\/ archive$/d' -e '/application\/epub+zip.,$/d' "$F"; \
+    if grep -q 'epub+zip' "$F"; then \
+        echo "failed to remove the epub+zip mapping from MimeAnalyzer.php" >&2; \
+        exit 1; \
+    fi; \
+    php -l "$F"
+
 # --- Install Composer ---
 # The official image already has /var/www/html/extensions.
 # We'll clone and install specific extensions here.
