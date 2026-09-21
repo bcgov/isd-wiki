@@ -16,6 +16,23 @@ data:
 
       port_in_redirect off;
 
+      # Upload ceiling. nginx's default client_max_body_size is 1m, which is
+      # well under $wgMaxUploadSize (10M in LocalSettings.php) and under PHP's
+      # limits, so it was the real cap: anything over 1MB was rejected here with
+      # a bare 413 before the request ever reached MediaWiki. No MediaWiki error
+      # page, no log entry in the wiki - it just looked like the upload failed.
+      # Most real-world Office documents are larger than 1MB, so in practice
+      # docx/xlsx uploads could not work regardless of MIME detection.
+      #
+      # Set above $wgMaxUploadSize on purpose, and above PHP's post_max_size, so
+      # that the size limit users actually hit is MediaWiki's own - which
+      # renders a proper "file is too large" message naming the limit - rather
+      # than a 413 from nginx or a silently truncated POST from PHP. The layers
+      # are deliberately ordered 10M (MediaWiki) < 12M (upload_max_filesize)
+      # < 13M (post_max_size) <= 13m (here). Raise this only together with the
+      # others in php-fpm-pool.conf, keeping the same ordering.
+      client_max_body_size 13m;
+
 
         location = / {
             return 301 /wiki/Main_Page;
