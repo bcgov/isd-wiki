@@ -295,6 +295,77 @@ EOF
 $wgFileExtensions[] = 'svg';
 EOF
     fi
+
+    # Larger uploads for administrators, ordinary users unchanged at 10 MB.
+    if ! setting_active "\$wgAvailableRights[] = 'upload-large'"; then
+        echo "Adding the upload-large right and per-request upload ceiling."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# Larger uploads for administrators.
+#
+# $wgMaxUploadSize is a single global and UploadBase::getMaxUploadSize() is
+# static with no user argument, so MediaWiki has no built-in per-group upload
+# limit. It does not need one. MainConfig is a GlobalVarConfig, whose get()
+# reads $GLOBALS on every call rather than caching at startup, so raising
+# $wgMaxUploadSize during a request changes the limit for that request alone.
+#
+# Everything downstream reads through getMaxUploadSize(), so one assignment
+# covers all of it: the figure shown on Special:Upload (UploadForm.php uses
+# min( getMaxUploadSize('file'), getMaxPhpUploadSize() )), the check in
+# UploadBase::verifyUpload(), and the API's siteinfo.maxuploadsize and
+# action=upload. Ordinary users are therefore told 10 MB and held to 10 MB -
+# no message override, and no gap between what the form promises and what it
+# accepts.
+#
+# The limit above is raised here and never lowered. If neither hook fires the
+# request simply keeps the 10 MB default, so a failure cannot hand anyone a
+# larger allowance than they should have.
+#
+# Keyed on a right rather than on group names, so who gets it can be changed
+# without touching this logic, and so it is visible on Special:ListGroupRights.
+#
+# The right and its group grants must be declared here, at config time.
+# PermissionManager resolves group permissions once when the service is built
+# and does not re-read $wgGroupPermissions afterwards, so assigning the right
+# later in the request - from a hook, say - has no effect. (Verified: a right
+# added after services were constructed still reports userHasRight() === false
+# for a user whose group was just granted it.) $wgMaxUploadSize is different,
+# and is the reason this approach works at all: MainConfig is a GlobalVarConfig
+# reading $GLOBALS on every get(), so that one value can be changed per request.
+#
+# nginx and php-fpm cannot know who is uploading - they run before MediaWiki
+# does - so both are set to the 50 MB ceiling (nginx ConfigMap, and
+# php-fpm-pool.conf in the image). This hook is the only thing keeping other
+# users at 10 MB. The practical effect is that an oversized upload from an
+# ordinary user is transferred in full before MediaWiki rejects it; the form
+# advertises 10 MB, so that should not arise in normal use.
+$wgAvailableRights[] = 'upload-large';
+$wgGroupPermissions['sysop']['upload-large'] = true;
+$wgGroupPermissions['bureaucrat']['upload-large'] = true;
+
+$wgISDLargeUploadSize = 50 * 1024 * 1024; // 50 MB
+
+function wfIsdRaiseUploadLimitFor( $user ) {
+	if ( !$user ) {
+		return;
+	}
+	$services = MediaWiki\MediaWikiServices::getInstance();
+	if ( $services->getPermissionManager()->userHasRight( $user, 'upload-large' ) ) {
+		$GLOBALS['wgMaxUploadSize'] = $GLOBALS['wgISDLargeUploadSize'];
+	}
+}
+
+# index.php: runs before Special:Upload renders its form or validates a POST.
+$wgHooks['BeforeInitialize'][] = static function ( $title, $unused, $output, $user, $request, $entryPoint ) {
+	wfIsdRaiseUploadLimitFor( $user );
+};
+
+# api.php: BeforeInitialize is not reached on the API entry point.
+$wgHooks['ApiBeforeMain'][] = static function ( &$main ) {
+	wfIsdRaiseUploadLimitFor( $main->getUser() );
+};
+EOF
+    fi
 fi
 
 # Ensure images folder exists and has correct permissions.
