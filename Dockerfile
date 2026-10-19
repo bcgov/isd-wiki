@@ -86,6 +86,12 @@ RUN curl -sS https://getcomposer.org/installer | php && \
     mv composer.phar /usr/local/bin/composer
 
 # --- Install MediaWiki Extensions ---
+# Cloned from Wikimedia's official GitHub mirrors (github.com/wikimedia/
+# mediawiki-extensions-<Name>) rather than gerrit.wikimedia.org. Since
+# 2026-10-19 Gerrit answers clones from GitHub Actions runners with HTTP 403,
+# while the same clone from elsewhere works - it filters cloud/CI traffic.
+# The mirrors are replicated from Gerrit and carry the same commits (REL1_46
+# heads checked identical for all six), so the image content is unchanged.
 RUN set -eux; \
     extensions="PageForms CategoryTree TitleKey TemplateData VEForAll Lingo"; \
     for ext in $extensions; do \
@@ -94,7 +100,7 @@ RUN set -eux; \
             echo "Skipping $ext: already exists."; \
         else \
             git clone --depth 1 --branch REL1_46 \
-              "https://gerrit.wikimedia.org/r/mediawiki/extensions/$ext" "$target_dir"; \
+              "https://github.com/wikimedia/mediawiki-extensions-$ext.git" "$target_dir"; \
         fi; \
     done; \
     cd extensions/PageForms && composer install --no-dev --no-interaction || true; \
