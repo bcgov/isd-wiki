@@ -366,6 +366,25 @@ $wgHooks['ApiBeforeMain'][] = static function ( &$main ) {
 };
 EOF
     fi
+
+    # A group for granting larger uploads to individual non-admin users.
+    if ! setting_active "\$wgGroupPermissions['largeuploader']"; then
+        echo "Adding the largeuploader group."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# Larger uploads for specific users who are not administrators.
+#
+# Membership grants the 'upload-large' right declared above, so members get the
+# same per-request ceiling as sysop and bureaucrat with no change to the hook.
+# Bureaucrats add and remove members on Special:UserRights, where every change
+# is logged. 'upload' is granted too so the group works on its own, though
+# every logged-in user already has it through 'user'.
+$wgGroupPermissions['largeuploader']['upload'] = true;
+$wgGroupPermissions['largeuploader']['upload-large'] = true;
+$wgAddGroups['bureaucrat'][] = 'largeuploader';
+$wgRemoveGroups['bureaucrat'][] = 'largeuploader';
+EOF
+    fi
 fi
 
 # Ensure images folder exists and has correct permissions.
