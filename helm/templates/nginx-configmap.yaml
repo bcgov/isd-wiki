@@ -28,10 +28,15 @@ data:
       # that the size limit users actually hit is MediaWiki's own - which
       # renders a proper "file is too large" message naming the limit - rather
       # than a 413 from nginx or a silently truncated POST from PHP. The layers
-      # are deliberately ordered 10M (MediaWiki) < 12M (upload_max_filesize)
-      # < 13M (post_max_size) <= 13m (here). Raise this only together with the
-      # others in php-fpm-pool.conf, keeping the same ordering.
-      client_max_body_size 13m;
+      # are deliberately ordered 50M (the admin ceiling in LocalSettings.php)
+      # <= 50M (upload_max_filesize) < 52M (post_max_size) <= 52m (here). Raise
+      # this only together with the others in php-fpm-pool.conf, same ordering.
+      #
+      # nginx runs before MediaWiki and cannot see who is uploading, so this
+      # carries the 50M administrator ceiling for everyone. Ordinary users are
+      # held to 10M by a hook in LocalSettings.php that raises $wgMaxUploadSize
+      # per request only for holders of the 'upload-large' right.
+      client_max_body_size 52m;
 
 
         location = / {
