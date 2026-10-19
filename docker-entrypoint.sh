@@ -195,6 +195,40 @@ echo "Appended custom settings to LocalSettings.php."
 
 else
     echo "LocalSettings.php found. This is an existing installation."
+
+    # One-off repair for the setting_active() race fixed below. On 2026-10-19
+    # it appended the upload-large block to aebbdd-test's LocalSettings.php a
+    # second time, and PHP will not declare wfIsdRaiseUploadLimitFor() twice,
+    # so every entry point (update.php first) dies with "Cannot redeclare".
+    # Drop every copy of that block after the first: from its heading line to
+    # the "};" closing the ApiBeforeMain hook. The other duplicated blocks
+    # (Lingo, svg, largeuploader, ...) only repeat assignments and are left
+    # alone. Runs before update.php because update.php is what crashes.
+    if [ "$(grep -c '^function wfIsdRaiseUploadLimitFor(' "$LOCALSETTINGS_FILE")" -gt 1 ]; then
+        echo "Removing duplicate upload-large blocks from LocalSettings.php."
+        backup="$LOCALSETTINGS_FILE.bak-$(date +%Y%m%d%H%M%S)"
+        cp -p "$LOCALSETTINGS_FILE" "$backup"
+        awk '
+            $0 == "# Larger uploads for administrators." && ++copies > 1 { skipping = 1 }
+            skipping {
+                if (prev_was_api_call && $0 == "};") skipping = 0
+                prev_was_api_call = ($0 == "\twfIsdRaiseUploadLimitFor( $main->getUser() );")
+                next
+            }
+            { print }
+        ' "$backup" > "$LOCALSETTINGS_FILE.tmp"
+        # Write back in place (keeps the file's owner and mode on the PVC), and
+        # only if the result has exactly one declaration and still parses.
+        if [ "$(grep -c '^function wfIsdRaiseUploadLimitFor(' "$LOCALSETTINGS_FILE.tmp")" -eq 1 ] \
+            && php -l "$LOCALSETTINGS_FILE.tmp" >/dev/null; then
+            cat "$LOCALSETTINGS_FILE.tmp" > "$LOCALSETTINGS_FILE"
+            echo "Repaired. The previous file is kept at $backup."
+        else
+            echo "Repair did not produce a valid file; LocalSettings.php left unchanged." >&2
+        fi
+        rm -f "$LOCALSETTINGS_FILE.tmp"
+    fi
+
     echo "Running update.php to migrate the database schema."
     php maintenance/update.php
 
@@ -209,8 +243,22 @@ else
     # the append on every future start, so the setting can never come back.
     # (This is exactly how prod ended up stuck with SyntaxHighlight_GeSHi
     # commented out and no way for the entrypoint to restore it.)
+    #
+    # One awk process, deliberately not "grep -v ... | grep -qF". Under
+    # "set -o pipefail" that pipe races: grep -q exits on its first match, the
+    # upstream grep is killed by SIGPIPE if it is still writing, the pipeline
+    # returns 141, and a marker that IS present reads as absent - so the block
+    # is appended again. That is where the repeated Lingo, SyntaxHighlight and
+    # svg blocks in LocalSettings.php came from, and on 2026-10-19 it appended
+    # a second wfIsdRaiseUploadLimitFor() declaration, a PHP fatal that put
+    # aebbdd-test into CrashLoopBackOff. awk reads to EOF, so nothing can be
+    # cut off. (Locally reproduced: 36/200 false misses with the pipe, 0/200
+    # with this.)
     setting_active() {
-        grep -v '^[[:space:]]*#' "$LOCALSETTINGS_FILE" | grep -qF "$1"
+        awk -v marker="$1" '
+            !/^[[:space:]]*#/ && index($0, marker) { found = 1 }
+            END { exit !found }
+        ' "$LOCALSETTINGS_FILE"
     }
 
     if ! setting_active "wfLoadExtension( 'EmbedVideo' )"; then
@@ -293,6 +341,96 @@ EOF
 # at install time, so it applies to wikis installed before svg was allowed.
 # $wgStrictFileExtensions is on, so this list is the whole allowlist.
 $wgFileExtensions[] = 'svg';
+EOF
+    fi
+
+    # Larger uploads for administrators, ordinary users unchanged at 10 MB.
+    if ! setting_active "\$wgAvailableRights[] = 'upload-large'"; then
+        echo "Adding the upload-large right and per-request upload ceiling."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# Larger uploads for administrators.
+#
+# $wgMaxUploadSize is a single global and UploadBase::getMaxUploadSize() is
+# static with no user argument, so MediaWiki has no built-in per-group upload
+# limit. It does not need one. MainConfig is a GlobalVarConfig, whose get()
+# reads $GLOBALS on every call rather than caching at startup, so raising
+# $wgMaxUploadSize during a request changes the limit for that request alone.
+#
+# Everything downstream reads through getMaxUploadSize(), so one assignment
+# covers all of it: the figure shown on Special:Upload (UploadForm.php uses
+# min( getMaxUploadSize('file'), getMaxPhpUploadSize() )), the check in
+# UploadBase::verifyUpload(), and the API's siteinfo.maxuploadsize and
+# action=upload. Ordinary users are therefore told 10 MB and held to 10 MB -
+# no message override, and no gap between what the form promises and what it
+# accepts.
+#
+# The limit above is raised here and never lowered. If neither hook fires the
+# request simply keeps the 10 MB default, so a failure cannot hand anyone a
+# larger allowance than they should have.
+#
+# Keyed on a right rather than on group names, so who gets it can be changed
+# without touching this logic, and so it is visible on Special:ListGroupRights.
+#
+# The right and its group grants must be declared here, at config time.
+# PermissionManager resolves group permissions once when the service is built
+# and does not re-read $wgGroupPermissions afterwards, so assigning the right
+# later in the request - from a hook, say - has no effect. (Verified: a right
+# added after services were constructed still reports userHasRight() === false
+# for a user whose group was just granted it.) $wgMaxUploadSize is different,
+# and is the reason this approach works at all: MainConfig is a GlobalVarConfig
+# reading $GLOBALS on every get(), so that one value can be changed per request.
+#
+# nginx and php-fpm cannot know who is uploading - they run before MediaWiki
+# does - so both are set to the 50 MB ceiling (nginx ConfigMap, and
+# php-fpm-pool.conf in the image). This hook is the only thing keeping other
+# users at 10 MB. The practical effect is that an oversized upload from an
+# ordinary user is transferred in full before MediaWiki rejects it; the form
+# advertises 10 MB, so that should not arise in normal use.
+$wgAvailableRights[] = 'upload-large';
+$wgGroupPermissions['sysop']['upload-large'] = true;
+$wgGroupPermissions['bureaucrat']['upload-large'] = true;
+
+$wgISDLargeUploadSize = 50 * 1024 * 1024; // 50 MB
+
+function wfIsdRaiseUploadLimitFor( $user ) {
+	if ( !$user ) {
+		return;
+	}
+	$services = MediaWiki\MediaWikiServices::getInstance();
+	if ( $services->getPermissionManager()->userHasRight( $user, 'upload-large' ) ) {
+		$GLOBALS['wgMaxUploadSize'] = $GLOBALS['wgISDLargeUploadSize'];
+	}
+}
+
+# index.php: runs before Special:Upload renders its form or validates a POST.
+$wgHooks['BeforeInitialize'][] = static function ( $title, $unused, $output, $user, $request, $entryPoint ) {
+	wfIsdRaiseUploadLimitFor( $user );
+};
+
+# api.php: BeforeInitialize is not reached on the API entry point.
+$wgHooks['ApiBeforeMain'][] = static function ( &$main ) {
+	wfIsdRaiseUploadLimitFor( $main->getUser() );
+};
+EOF
+    fi
+
+    # A group for granting larger uploads to individual non-admin users.
+    if ! setting_active "\$wgGroupPermissions['largeuploader']"; then
+        echo "Adding the largeuploader group."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# Larger uploads for specific users who are not administrators.
+#
+# Membership grants the 'upload-large' right declared above, so members get the
+# same per-request ceiling as sysop and bureaucrat with no change to the hook.
+# Bureaucrats add and remove members on Special:UserRights, where every change
+# is logged. 'upload' is granted too so the group works on its own, though
+# every logged-in user already has it through 'user'.
+$wgGroupPermissions['largeuploader']['upload'] = true;
+$wgGroupPermissions['largeuploader']['upload-large'] = true;
+$wgAddGroups['bureaucrat'][] = 'largeuploader';
+$wgRemoveGroups['bureaucrat'][] = 'largeuploader';
 EOF
     fi
 fi

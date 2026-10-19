@@ -36,7 +36,13 @@ nginx:
       memory: 64Mi
     limits:
       cpu: 100m
-      memory: 128Mi
+      # Headroom for 50MB uploads (client_max_body_size 52m). nginx buffers
+      # request bodies to disk under /var/cache/nginx/client_temp, so its own
+      # RSS stays near 27Mi, but the cgroup also counts the temp file's page
+      # cache: a single 45MB POST in aebbdd-test peaked at 79Mi and a rejected
+      # 60MB one at 88Mi, leaving ~40Mi under the old 128Mi for concurrent
+      # uploads. The request stays at 64Mi since idle usage is ~36Mi.
+      memory: 256Mi
 
   podSecurityContext: {}
     # fsGroup: 2000
