@@ -209,8 +209,22 @@ else
     # the append on every future start, so the setting can never come back.
     # (This is exactly how prod ended up stuck with SyntaxHighlight_GeSHi
     # commented out and no way for the entrypoint to restore it.)
+    #
+    # One awk process, deliberately not "grep -v ... | grep -qF". Under
+    # "set -o pipefail" that pipe races: grep -q exits on its first match, the
+    # upstream grep is killed by SIGPIPE if it is still writing, the pipeline
+    # returns 141, and a marker that IS present reads as absent - so the block
+    # is appended again. That is where the repeated Lingo, SyntaxHighlight and
+    # svg blocks in LocalSettings.php came from, and on 2026-10-19 it appended
+    # a second wfIsdRaiseUploadLimitFor() declaration, a PHP fatal that put
+    # aebbdd-test into CrashLoopBackOff. awk reads to EOF, so nothing can be
+    # cut off. (Locally reproduced: 36/200 false misses with the pipe, 0/200
+    # with this.)
     setting_active() {
-        grep -v '^[[:space:]]*#' "$LOCALSETTINGS_FILE" | grep -qF "$1"
+        awk -v marker="$1" '
+            !/^[[:space:]]*#/ && index($0, marker) { found = 1 }
+            END { exit !found }
+        ' "$LOCALSETTINGS_FILE"
     }
 
     if ! setting_active "wfLoadExtension( 'EmbedVideo' )"; then
