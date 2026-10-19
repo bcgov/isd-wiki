@@ -195,6 +195,40 @@ echo "Appended custom settings to LocalSettings.php."
 
 else
     echo "LocalSettings.php found. This is an existing installation."
+
+    # One-off repair for the setting_active() race fixed below. On 2026-10-19
+    # it appended the upload-large block to aebbdd-test's LocalSettings.php a
+    # second time, and PHP will not declare wfIsdRaiseUploadLimitFor() twice,
+    # so every entry point (update.php first) dies with "Cannot redeclare".
+    # Drop every copy of that block after the first: from its heading line to
+    # the "};" closing the ApiBeforeMain hook. The other duplicated blocks
+    # (Lingo, svg, largeuploader, ...) only repeat assignments and are left
+    # alone. Runs before update.php because update.php is what crashes.
+    if [ "$(grep -c '^function wfIsdRaiseUploadLimitFor(' "$LOCALSETTINGS_FILE")" -gt 1 ]; then
+        echo "Removing duplicate upload-large blocks from LocalSettings.php."
+        backup="$LOCALSETTINGS_FILE.bak-$(date +%Y%m%d%H%M%S)"
+        cp -p "$LOCALSETTINGS_FILE" "$backup"
+        awk '
+            $0 == "# Larger uploads for administrators." && ++copies > 1 { skipping = 1 }
+            skipping {
+                if (prev_was_api_call && $0 == "};") skipping = 0
+                prev_was_api_call = ($0 == "\twfIsdRaiseUploadLimitFor( $main->getUser() );")
+                next
+            }
+            { print }
+        ' "$backup" > "$LOCALSETTINGS_FILE.tmp"
+        # Write back in place (keeps the file's owner and mode on the PVC), and
+        # only if the result has exactly one declaration and still parses.
+        if [ "$(grep -c '^function wfIsdRaiseUploadLimitFor(' "$LOCALSETTINGS_FILE.tmp")" -eq 1 ] \
+            && php -l "$LOCALSETTINGS_FILE.tmp" >/dev/null; then
+            cat "$LOCALSETTINGS_FILE.tmp" > "$LOCALSETTINGS_FILE"
+            echo "Repaired. The previous file is kept at $backup."
+        else
+            echo "Repair did not produce a valid file; LocalSettings.php left unchanged." >&2
+        fi
+        rm -f "$LOCALSETTINGS_FILE.tmp"
+    fi
+
     echo "Running update.php to migrate the database schema."
     php maintenance/update.php
 
