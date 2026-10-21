@@ -10,6 +10,18 @@
 # together.
 FROM mediawiki:1.46-fpm-alpine
 
+# --- SECURITY PATCH: Immediate Core PHP 8.3 Upgrade ---
+# This ensures that when GitHub Actions compiles this image, it pulls
+# the patched binaries (PHP 8.3.36+) directly from Alpine's security mirrors.
+RUN set -eux; \
+    apk update; \
+    apk add --no-cache --upgrade \
+    php83 \
+    php83-fpm \
+    php83-common \
+    php83-opcache \
+    ;
+
 # --- System dependencies ---
 # Add necessary system packages not included in the base image,
 # including git (for extensions), imagemagick, librsvg2-bin (for SVG rendering),
