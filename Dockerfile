@@ -8,7 +8,15 @@
 # releases (1.46.x), so security fixes arrive without jumping a minor version
 # out from under the extension pins. Bump this and the REL branch below
 # together.
-FROM mediawiki:1.46-fpm-alpine
+#
+# The digest pins the 1.46.2 build that ships PHP 8.3.36, the release that
+# fixes PHP2Shell (CVE-2026-109618, CVE-2026-109619). PHP here is compiled
+# into /usr/local by the official php base image, and php-fpm runs from
+# /usr/local/sbin; Alpine's php83 apk packages install a separate copy that
+# never runs, so PHP is patched by moving this digest, not with apk. To pick
+# up a newer patch release, update the digest from:
+#   docker buildx imagetools inspect mediawiki:1.46-fpm-alpine
+FROM mediawiki:1.46-fpm-alpine@sha256:1ede4aec22754a0ec6f1293b2d4b0dc651c4234c730b95b0dff55fb12092f5d2
 
 # --- System dependencies ---
 # Add necessary system packages not included in the base image,
