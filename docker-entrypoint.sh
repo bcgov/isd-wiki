@@ -186,6 +186,11 @@ wfLoadExtension( 'Lingo' );
 # underline that's easy to miss).
 \$wgexLingoWCAGStyle = true;
 
+# # Load ReplaceText (Special:ReplaceText, bulk find-and-replace across pages).
+# Bundled with the MediaWiki core tarball, so no Dockerfile clone is needed.
+# Only sysops get the 'replacetext' right by default.
+wfLoadExtension( 'ReplaceText' );
+
 # --- END OF CUSTOM SETTINGS ---
 EOF
 
@@ -324,6 +329,19 @@ EOF
 # more obviously interactive (default style is a very subtle 1px dotted
 # underline that's easy to miss).
 $wgexLingoWCAGStyle = true;
+EOF
+    fi
+
+    # ReplaceText ships in the MediaWiki core tarball but was never loaded on
+    # the existing test/prod wikis (verified 2026-11-24: on disk, absent from
+    # LocalSettings.php).
+    if ! setting_active "wfLoadExtension( 'ReplaceText' )"; then
+        echo "Adding ReplaceText extension to existing LocalSettings.php."
+        cat << 'EOF' >> "$LOCALSETTINGS_FILE"
+
+# # Load ReplaceText (Special:ReplaceText, bulk find-and-replace across pages).
+# Only sysops get the 'replacetext' right by default.
+wfLoadExtension( 'ReplaceText' );
 EOF
     fi
 
